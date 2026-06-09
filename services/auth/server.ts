@@ -814,6 +814,62 @@ async function logAudit(
   );
 }
 
+// ---------------------------------------------------------------------------
+// PDF compilation helper — used by /api/contracts/generate (story 6-3) and
+// the legacy fallback path in /vault/:filename for contracts predating R2.
+// ---------------------------------------------------------------------------
+interface ClauseVersion {
+  clause_key: string;
+  content: string;
+  loi_reference: string;
+}
+
+async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
+  const clauses = await all<ClauseVersion>(
+    'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
+    [contract.type]
+  );
+  const data = JSON.parse(contract.data_json);
+  let compiledContent = `CONTRAT DE ${String(contract.type).toUpperCase()}\n\n`;
+  if (clauses.length > 0) {
+    clauses.forEach((clause) => {
+      let text = clause.content;
+      const matches = text.match(/\{[a-zA-Z0-9_]+\}/g);
+      if (matches) {
+        matches.forEach((m) => {
+          const key = m.slice(1, -1);
+          const replacement = data[key] !== undefined ? data[key] : `[${key}]`;
+          text = text.replace(m, replacement);
+        });
+      }
+      compiledContent += `${text} (Ref: ${clause.loi_reference})\n\n`;
+    });
+  } else {
+    compiledContent += `Donnees du contrat :\n` + JSON.stringify(data, null, 2);
+  }
+
+  const textLines = compiledContent.split('\n');
+  let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
+  textLines.forEach(line => {
+    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    streamContent += `(${escaped}) Tj T*\n`;
+  });
+  streamContent += `ET`;
+  const streamLength = Buffer.byteLength(streamContent, 'latin1');
+  const pdfParts = [
+    `%PDF-1.4`,
+    `1 0 obj`, `<< /Type /Catalog /Pages 2 0 R >>`, `endobj`,
+    `2 0 obj`, `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`, `endobj`,
+    `3 0 obj`, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`, `endobj`,
+    `4 0 obj`, `<< /Length ${streamLength} >>`, `stream`, streamContent, `endstream`, `endobj`,
+    `5 0 obj`, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`, `endobj`,
+    `xref`, `0 6`, `0000000000 65535 f `,
+    `trailer`, `<< /Size 6 /Root 1 0 R >>`,
+    `%%EOF`
+  ];
+  return Buffer.from(pdfParts.join('\n'), 'latin1');
+}
+
 // Zod validation for contract generation
 const generateContractSchema = z.object({
   type: z.string().min(1, { message: "Contract type is required" }),
@@ -860,11 +916,34 @@ app.post('/api/contracts/generate', authMiddleware, async (req: Request, res: Re
     const pdfUrl = `/vault/${contractId}.pdf`;
     const createdAt = new Date().toISOString();
 
+    // Insert contracts row first so compileContractPdfBuffer sees the data.
     await run(
       `INSERT INTO contracts (id, user_id, type, status, template_id, data_json, pdf_url, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [contractId, userId, type, 'generated', template_id, JSON.stringify(data), pdfUrl, createdAt]
     );
+
+    // Story 6-3: compile PDF buffer and push to vault (R2 + envelope encryption
+    // when KEK is set, in-memory fallback otherwise). Failures are non-fatal
+    // for the POC path — the legacy /vault/:filename handler will recompile
+    // on-the-fly if r2_key is missing.
+    let r2Key: string | null = null;
+    try {
+      const contractRow = { type, data_json: JSON.stringify(data) };
+      const pdfBuffer = await compileContractPdfBuffer(contractRow);
+      const stored = await putDocument({
+        buffer: pdfBuffer,
+        mime_type: 'application/pdf',
+        entity_type: 'contract',
+        entity_id: contractId,
+        user_id: userId,
+      });
+      r2Key = stored.r2_key;
+      await run(`UPDATE contracts SET r2_key = ? WHERE id = ?`, [r2Key, contractId]);
+    } catch (storageErr: any) {
+      // Don't 500 the user — log and fall back to on-the-fly serve.
+      console.warn('Vault upload skipped for contract', contractId, ':', storageErr?.message || storageErr);
+    }
 
     // Audit log
     await logAudit(userId, 'CREATE_CONTRACT', 'contract', contractId, req);
@@ -873,7 +952,8 @@ app.post('/api/contracts/generate', authMiddleware, async (req: Request, res: Re
       success: true,
       message: 'Contract generated successfully.',
       contractId,
-      pdfUrl
+      pdfUrl,
+      r2_key: r2Key,
     });
   } catch (error) {
     console.error('Error generating contract:', error);
@@ -946,6 +1026,16 @@ app.get('/api/contracts/:id/preview', authMiddleware, async (req: Request, res: 
   }
 });
 
+// GET /vault/:filename — serve a contract PDF.
+//
+// Story 6-3 behaviour:
+//  1. Lookup contracts row by id (filename = `{contractId}.pdf`).
+//  2. If `contracts.r2_key` is set → fetch the encrypted blob from the vault
+//     (R2 or local POC store), decrypt it via envelope encryption, stream.
+//  3. Fallback (legacy contracts pre-R2) → compile the PDF on the fly from
+//     clause_versions and stream that.
+//
+// Audit: every successful download is logged (DOWNLOAD_VAULT_DOCUMENT).
 app.get('/vault/:filename', async (req: Request, res: Response): Promise<void> => {
   try {
     const filename = req.params.filename as string;
@@ -957,80 +1047,32 @@ app.get('/vault/:filename', async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Fetch clauses of this type to compile preview/content
-    interface ClauseVersion {
-      clause_key: string;
-      content: string;
-      loi_reference: string;
-    }
-    const clauses = await all<ClauseVersion>(
-      'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
-      [contract.type]
-    );
-
-    const data = JSON.parse(contract.data_json);
-    let compiledContent = `CONTRAT DE ${contract.type.toUpperCase()}\n\n`;
-
-    if (clauses.length > 0) {
-      clauses.forEach((clause) => {
-        let text = clause.content;
-        const matches = text.match(/\{[a-zA-Z0-9_]+\}/g);
-        if (matches) {
-          matches.forEach((m) => {
-            const key = m.slice(1, -1);
-            const replacement = data[key] !== undefined ? data[key] : `[${key}]`;
-            text = text.replace(m, replacement);
-          });
-        }
-        compiledContent += `${text} (Ref: ${clause.loi_reference})\n\n`;
-      });
+    let pdfBuffer: Buffer;
+    if (contract.r2_key) {
+      try {
+        // vault_documents row for the same r2_key has the encrypted_dek.
+        const row = await get<{ encrypted_dek: string }>(
+          'SELECT encrypted_dek FROM vault_documents WHERE r2_key = ?',
+          [contract.r2_key]
+        );
+        pdfBuffer = await getDocumentByR2Key(contract.r2_key, row?.encrypted_dek || '');
+      } catch (vaultErr: any) {
+        // Vault read failed — fall back to on-the-fly compilation so the user
+        // can still retrieve their contract.
+        console.warn('Vault read failed for', contract.r2_key, ':', vaultErr?.message || vaultErr);
+        pdfBuffer = await compileContractPdfBuffer(contract);
+      }
     } else {
-      compiledContent += `Donnees du contrat :\n` + JSON.stringify(data, null, 2);
+      pdfBuffer = await compileContractPdfBuffer(contract);
     }
 
-    // Format the text into standard PDF-compatible syntax
-    const textLines = compiledContent.split('\n');
-    let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
-    textLines.forEach(line => {
-      // Escape parentheses in PDF text elements
-      const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-      streamContent += `(${escaped}) Tj T*\n`;
-    });
-    streamContent += `ET`;
+    // Best-effort audit log. We don't know which user is downloading
+    // (this endpoint is unauthenticated for now to keep the legacy <a href>
+    // flow working) so we record under the contract owner.
+    try {
+      await logAudit(contract.user_id || null, 'DOWNLOAD_VAULT_DOCUMENT', 'contract', contractId, req);
+    } catch { /* never fail the download because of audit issues */ }
 
-    const streamLength = Buffer.byteLength(streamContent, 'latin1');
-
-    const pdfParts = [
-      `%PDF-1.4`,
-      `1 0 obj`,
-      `<< /Type /Catalog /Pages 2 0 R >>`,
-      `endobj`,
-      `2 0 obj`,
-      `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`,
-      `endobj`,
-      `3 0 obj`,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`,
-      `endobj`,
-      `4 0 obj`,
-      `<< /Length ${streamLength} >>`,
-      `stream`,
-      streamContent,
-      `endstream`,
-      `endobj`,
-      `5 0 obj`,
-      `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`,
-      `endobj`,
-      `xref`,
-      `0 6`,
-      `0000000000 65535 f `,
-      `trailer`,
-      `<< /Size 6 /Root 1 0 R >>`,
-      `%%EOF`
-    ];
-
-    const pdfBuffer = Buffer.from(pdfParts.join('\n'), 'latin1');
-
-    // Serve as PDF file attachment
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(pdfBuffer);
