@@ -1,5 +1,5 @@
 # generated: 2026-05-26 11:12
-# last_updated: 2026-06-08
+# last_updated: 2026-06-09
 # project: EasyLaw
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-26 11:12
-last_updated: 2026-06-08
+last_updated: 2026-06-09
 project: EasyLaw
 project_key: NOKEY
 tracking_system: file-system
@@ -75,9 +75,10 @@ development_status:
   5-3-escalade-avocat: done
   epic-5-retrospective: done
 
-  epic-6: done
+  epic-6: in-progress
   6-1-stockage-documents: done
   6-2-audit-trail: done
+  6-3-stockage-r2-chiffrement-envelope: ready-for-dev
   epic-6-retrospective: done
 
   # ── PRIVY.IO INTEGRATION (transversal — tous modules) ────────────────────
