@@ -4,7 +4,7 @@ baseline_commit: fe0ad75a0bb762755a3b9479c3f36a2b34743d07
 
 # Story 17-1 : Auth Privy — Migration de l'authentification
 
-Status: review
+Status: done
 
 ## Story
 

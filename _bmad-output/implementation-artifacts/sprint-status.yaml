@@ -1,5 +1,5 @@
 # generated: 2026-05-26 11:12
-# last_updated: 2026-06-09
+# last_updated: 2026-06-09 (17-1 done — 3 majeurs fixés)
 # project: EasyLaw
 # project_key: NOKEY
 # tracking_system: file-system
@@ -84,7 +84,7 @@ development_status:
   # ── PRIVY.IO INTEGRATION (transversal — tous modules) ────────────────────
   epic-17: in-progress
   17-0-fondation-privy: done
-  17-1-auth-privy: review
+  17-1-auth-privy: done
   17-2-signature-onchain: backlog
   17-3-paiements-crypto: backlog
   17-4-did-identity: backlog
