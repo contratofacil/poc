@@ -286,5 +286,414 @@ created: 2026-05-26
 
 ---
 
-*Généré par BMAD Method v6.8.0 — Skill: bmad-create-epics-and-stories (CE)*  
-*EasyLaw CDC v2.0 PRO — Contrato Fácil × Oliveira & Carneiro — Porto, Portugal*
+## PHASE 2 — Consolidation (T4 2026)
+
+---
+
+## Épic 7 : Signature CMD (eIDAS Advanced)
+
+**Objectif :** Permettre la signature électronique incontestable via Chave Móvel Digital (AMA).
+
+### US-7.1 — Intégration API AMA
+- **En tant que** utilisateur ayant généré un contrat
+- **Je veux** signer via ma Chave Móvel Digital
+- **Afin d'** obtenir une signature eIDAS Advanced incontestable
+- **Critères d'acceptation :**
+  - [ ] Connexion sandbox AMA opérationnelle (OAuth2 AMA)
+  - [ ] Flux d'authentification CMD : envoi OTP SMS + validation
+  - [ ] Gestion des erreurs AMA (timeout, OTP invalide, compte bloqué)
+  - [ ] Logs d'audit : chaque tentative d'auth tracée avec IP + timestamp
+- **Estimation :** 5 points
+
+### US-7.2 — Signature de contrat via CMD
+- **En tant que** client ayant payé son contrat
+- **Je veux** déclencher la signature CMD depuis le vault
+- **Afin d'** avoir un document signé avec valeur légale eIDAS Advanced
+- **Critères d'acceptation :**
+  - [ ] Bouton « Signer avec CMD » visible sur tout document en statut Draft
+  - [ ] Document envoyé à l'API AMA pour signature (hash SHA-256)
+  - [ ] Document signé retourné et stocké dans vault (badge « Signé »)
+  - [ ] Email de confirmation avec lien de téléchargement
+  - [ ] Audit trail : événement signature avec certificat AMA
+- **Estimation :** 5 points
+
+### US-7.3 — Fallback QES + Audit Trail Signature
+- **En tant que** utilisateur dont la CMD échoue
+- **Je veux** basculer vers un TSP QES alternatif
+- **Afin de** pouvoir signer même sans CMD active
+- **Critères d'acceptation :**
+  - [ ] Détection automatique d'échec CMD → proposition QES
+  - [ ] Intégration TSP provider (ex. MULTICERT) pour QES
+  - [ ] Audit trail unifié CMD + QES dans la table signature_events
+  - [ ] Export PDF de preuve de signature (pour usage juridique)
+- **Estimation :** 3 points
+
+---
+
+## Épic 8 : Modèles de Contrats Phase 2
+
+**Objectif :** Ajouter Bail Commercial et NDA au générateur de contrats.
+
+### US-8.1 — Wizard Bail Commercial (NRAU régime commercial)
+- **En tant que** entrepreneur
+- **Je veux** générer un contrat de bail commercial conforme au NRAU
+- **Afin d'** avoir un document légalement sécurisé pour mon local
+- **Critères d'acceptation :**
+  - [ ] Wizard max 8 questions (réutiliser pattern Epic 3)
+  - [ ] Clauses obligatoires NRAU commercial auto-injectées
+  - [ ] Webhook NRAU pour mise à jour automatique si législation change
+  - [ ] Prévisualisation PDF + paiement Stripe/MB Way avant téléchargement
+- **Estimation :** 5 points
+
+### US-8.2 — Wizard NDA / Confidentialité
+- **En tant qu'** entrepreneur
+- **Je veux** générer un NDA conforme au droit des affaires portugais
+- **Afin de** protéger mes informations confidentielles
+- **Critères d'acceptation :**
+  - [ ] Choix : NDA unilatéral / bilatéral / multilatéral
+  - [ ] Durée confidentialité, périmètre, sanctions — configurables
+  - [ ] Template Carbone.io validé par Oliveira & Cameiro
+  - [ ] Export PDF + stockage vault
+- **Estimation :** 3 points
+
+---
+
+## Épic 9 : Recherche Juridique IA (Module B)
+
+**Objectif :** Recherche juridique en langage naturel sur sources PT + EU pour avocats.
+
+### US-9.1 — Interface de Recherche
+- **En tant qu'** avocat
+- **Je veux** poser une question juridique en langage naturel
+- **Afin d'** obtenir une réponse sourcée sur les textes officiels PT + EU
+- **Critères d'acceptation :**
+  - [ ] Interface dédiée Module B (accès RBAC avocat/admin_cabinet)
+  - [ ] Réponse streamée < 3 secondes premier token
+  - [ ] Sources citées avec lien direct (DRE, DGSI, CURIA, EUR-Lex)
+  - [ ] Génération automatique de résumé et tableau récapitulatif
+- **Estimation :** 5 points
+
+### US-9.2 — Indexation RAG Sources Officielles
+- **En tant que** système
+- **Je veux** indexer en temps réel DRE, DGSI, CURIA, EUR-Lex, CAAD
+- **Afin de** fournir des réponses à jour sur la jurisprudence et législation
+- **Critères d'acceptation :**
+  - [ ] Pipeline d'indexation DRE Série I & II (crawl + embeddings)
+  - [ ] Indexation DGSI + CURIA + EUR-Lex (API ou scraping autorisé)
+  - [ ] Reranking Cohere v3 (infrastructure déjà présente Epic 5)
+  - [ ] Mise à jour incrémentale quotidienne (CRON)
+  - [ ] Validation corpus par Oliveira & Cameiro avant prod
+- **Estimation :** 8 points
+
+### US-9.3 — Mode DeepDive
+- **En tant qu'** avocat
+- **Je veux** lancer une recherche approfondie multi-sources
+- **Afin d'** obtenir une analyse exhaustive d'une question juridique complexe
+- **Critères d'acceptation :**
+  - [ ] Mode DeepDive déclenché explicitement (bouton distinct)
+  - [ ] Recherche parallèle sur toutes les sources indexées
+  - [ ] Génération de fiche de jurisprudence complète
+  - [ ] Temps de traitement affiché (indicateur de progression)
+- **Estimation :** 5 points
+
+### US-9.4 — Export PDF Recherche
+- **En tant qu'** avocat
+- **Je veux** exporter ma recherche en PDF professionnel
+- **Afin de** l'inclure dans un dossier ou le partager
+- **Critères d'acceptation :**
+  - [ ] PDF avec entête EasyLaw + mentions légales
+  - [ ] Liens cliquables vers chaque source citée
+  - [ ] Tableaux et résumés inclus
+  - [ ] Stockage automatique dans vault du cabinet
+- **Estimation :** 3 points
+
+---
+
+## Épic 10 : Analyse de Documents IA (Module B)
+
+**Objectif :** Analyser jusqu'à 100 documents / 1 500 pages simultanément.
+
+### US-10.1 — Upload Batch Documents
+- **En tant qu'** avocat
+- **Je veux** uploader jusqu'à 100 documents en une session
+- **Afin de** les soumettre à l'analyse IA groupée
+- **Critères d'acceptation :**
+  - [ ] Formats acceptés : Word, PDF, Excel, images (JPG/PNG), scans
+  - [ ] OCR automatique pour documents scannés et images
+  - [ ] Limite : 100 docs / 1 500 pages par session
+  - [ ] Barre de progression upload + indicateur OCR
+  - [ ] Réutiliser pattern upload US-2.2 (drag & drop, qualité visuelle)
+- **Estimation :** 5 points
+
+### US-10.2 — Analyse Structurée IA
+- **En tant qu'** avocat
+- **Je veux** obtenir une analyse structurée du corpus uploadé
+- **Afin d'** identifier risques, clauses sensibles et chronologie
+- **Critères d'acceptation :**
+  - [ ] Résumé structuré (enjeux, parties, rôles, points clés)
+  - [ ] Identification clauses sensibles et déséquilibres contractuels
+  - [ ] Reconstruction chronologique automatique des faits
+  - [ ] Confrontation avec sources PT/EU en temps réel
+  - [ ] Conforme RGPD : données isolées du modèle LLM
+- **Estimation :** 8 points
+
+### US-10.3 — Export Résultats + Historique
+- **En tant qu'** avocat
+- **Je veux** exporter les résultats et consulter l'historique des analyses
+- **Afin de** constituer la documentation du dossier
+- **Critères d'acceptation :**
+  - [ ] Export PDF avec citations + liens sources
+  - [ ] Export tableaux récapitulatifs (Excel compatible)
+  - [ ] Historique des sessions d'analyse dans vault
+  - [ ] Rollback one-click vers version précédente d'une analyse
+- **Estimation :** 3 points
+
+---
+
+## Épic 11 : Production de Documents IA + Word Add-in (Module B)
+
+**Objectif :** Générer et corriger des documents juridiques depuis Word ou le web.
+
+### US-11.1 — Génération Document depuis NL
+- **En tant qu'** avocat
+- **Je veux** générer un document juridique depuis une instruction en langage naturel
+- **Afin de** produire rapidement des actes de qualité
+- **Critères d'acceptation :**
+  - [ ] Zone de saisie NL + sélection type de document
+  - [ ] Génération basée sur RAG (Epic 9) + templates internes cabinet
+  - [ ] Complétion automatique depuis pièces du dossier
+  - [ ] Export Word (.docx) et PDF
+- **Estimation :** 5 points
+
+### US-11.2 — Microsoft Word Add-in
+- **En tant qu'** avocat
+- **Je veux** utiliser EasyLaw IA directement dans Microsoft Word
+- **Afin de** rédiger et corriger sans quitter mon environnement habituel
+- **Critères d'acceptation :**
+  - [ ] Add-in Office (manifeste XML + React task pane)
+  - [ ] Fonctions : rédiger, corriger, adopter style de référence
+  - [ ] Déploiement via manifeste interne (AppSource phase ultérieure)
+  - [ ] Auth SSO EasyLaw depuis Word
+- **Estimation :** 8 points
+
+### US-11.3 — Anonymisation + Traduction Juridique
+- **En tant qu'** avocat
+- **Je veux** anonymiser et/ou traduire un document en un clic
+- **Afin de** partager des pièces sans exposer les données personnelles
+- **Critères d'acceptation :**
+  - [ ] Anonymisation : noms, adresses, numéros → [PARTIE A], [ADRESSE]…
+  - [ ] Traduction PT / EN / FR / ES avec préservation terminologie juridique
+  - [ ] Aperçu des modifications avant application
+  - [ ] Stockage original + version anonymisée/traduite dans vault
+- **Estimation :** 5 points
+
+### US-11.4 — Système Collaboratif
+- **En tant qu'** équipe cabinet
+- **Je veux** travailler en temps réel sur un document
+- **Afin de** valider et commenter sans aller-retours email
+- **Critères d'acceptation :**
+  - [ ] Suggestions inline (accepter / refuser) style Google Docs
+  - [ ] Système de commentaires avec mentions @avocat
+  - [ ] Historique complet des versions avec rollback one-click
+  - [ ] Notifications en temps réel (WebSocket)
+- **Estimation :** 5 points
+
+---
+
+## Épic 12 : GED & Knowledge Management (Module B)
+
+**Objectif :** Centraliser la base documentaire du cabinet avec organisation IA.
+
+### US-12.1 — Connexion GED Cabinet
+- **En tant qu'** admin cabinet
+- **Je veux** connecter la base documentaire du cabinet à EasyLaw
+- **Afin d'** indexer dossiers, contrats et emails pour recherche IA
+- **Critères d'acceptation :**
+  - [ ] Import manuel (upload batch) ou connecteur (SharePoint/Drive optionnel)
+  - [ ] Indexation automatique IA : catégorisation, tags, priorités, dossiers
+  - [ ] Isolation stricte par cabinet (RBAC)
+  - [ ] Conforme secret professionnel (Estatuto da Ordem dos Advogados)
+- **Estimation :** 5 points
+
+### US-12.2 — Recherche NL Interne + Bibliothèque
+- **En tant qu'** avocat
+- **Je veux** rechercher dans tous les documents internes du cabinet en langage naturel
+- **Afin de** valoriser immédiatement des années d'expertise
+- **Critères d'acceptation :**
+  - [ ] Interface recherche dédiée (séparée des sources officielles Epic 9)
+  - [ ] Résultats avec extraits pertinents et score de pertinence
+  - [ ] Bibliothèque centralisée : vue par dossier, type, date, avocat
+  - [ ] Suggestions de documents similaires
+- **Estimation :** 5 points
+
+### US-12.3 — File de Validation + Reporting Cabinet
+- **En tant qu'** admin cabinet
+- **Je veux** valider les documents produits par l'IA et suivre les KPIs
+- **Afin de** maintenir la qualité et mesurer la productivité
+- **Critères d'acceptation :**
+  - [ ] File d'attente : documents IA à valider par un avocat
+  - [ ] Actions : valider, annoter, demande de modification client
+  - [ ] Dashboard reporting : volume dossiers, délais traitement, productivité équipe
+  - [ ] Export rapport mensuel PDF
+- **Estimation :** 3 points
+
+---
+
+## Épic 13 : API REST Publique
+
+**Objectif :** API pour intégrations tierces (cabinets partenaires, ERP, CRM).
+
+### US-13.1 — Design API + Auth OAuth2 Partenaires
+- **En tant que** développeur partenaire
+- **Je veux** m'authentifier à l'API EasyLaw avec OAuth2
+- **Afin d'** intégrer les services EasyLaw dans mon application
+- **Critères d'acceptation :**
+  - [ ] Endpoints `/api/v1/` versionnés
+  - [ ] Auth OAuth2 client credentials pour partenaires
+  - [ ] Rate limiting par partenaire (configurable)
+  - [ ] Sandbox environnement pour tests partenaires
+- **Estimation :** 3 points
+
+### US-13.2 — Endpoints Contrats / NIF / Compliance + OpenAPI
+- **En tant que** développeur partenaire
+- **Je veux** accéder aux ressources EasyLaw via REST
+- **Afin d'** automatiser les flux dans mon ERP/CRM
+- **Critères d'acceptation :**
+  - [ ] Endpoints : POST /contracts, GET /nif-files, GET /compliance-items, GET /documents
+  - [ ] Documentation OpenAPI 3.0 auto-générée (Swagger UI)
+  - [ ] Webhooks : événements contrat signé, statut NIF changé, alerte compliance
+  - [ ] SDK JS/TS généré depuis spec OpenAPI
+- **Estimation :** 5 points
+
+---
+
+## PHASE 3 — Expansion (S1 2027)
+
+---
+
+## Épic 14 : Module Golden Visa / D7 / Digital Nomads
+
+**Objectif :** Accompagnement résidence et visa PT pour expatriés.
+
+### US-14.1 — Formulaire Golden Visa
+- **En tant qu'** expatrié investisseur
+- **Je veux** initier ma demande Golden Visa sur EasyLaw
+- **Afin d'** être accompagné par Oliveira & Cameiro dans mes démarches
+- **Critères d'acceptation :**
+  - [ ] Formulaire multi-step (réutiliser pattern US-2.1)
+  - [ ] Critères d'éligibilité : investissement immobilier / fonds / transfert capital
+  - [ ] Upload documents requis (passeport, justificatifs investissement)
+  - [ ] Suivi dossier avec timeline visuelle (pattern US-2.4)
+- **Estimation :** 5 points
+
+### US-14.2 — Formulaire D7 / Digital Nomad Visa
+- **En tant qu'** expatrié à revenus passifs ou travailleur à distance
+- **Je veux** initier ma demande D7 ou Digital Nomad Visa
+- **Afin d'** obtenir ma résidence portugaise
+- **Critères d'acceptation :**
+  - [ ] Vérification revenus minimaux requis (D7 vs DNV)
+  - [ ] Checklist documents AIMA (ex-SEF)
+  - [ ] Connexion au cabinet pour validation et dépôt dossier
+  - [ ] Notifications statut par email + SMS
+- **Estimation :** 5 points
+
+### US-14.3 — Paiement Frais Dossier + Notifications
+- **En tant qu'** utilisateur du module visa
+- **Je veux** payer les frais de service EasyLaw en ligne
+- **Afin de** finaliser ma commande sans déplacement
+- **Critères d'acceptation :**
+  - [ ] Paiement Stripe + MB Way (réutiliser infrastructure Epic 2)
+  - [ ] Facture PDF générée automatiquement
+  - [ ] Notifications à chaque étape du dossier AIMA
+- **Estimation :** 3 points
+
+---
+
+## Épic 15 : i18n Complet PT / EN / FR / ES
+
+**Objectif :** Internationalisation complète (PT et FR déjà livrés en MVP).
+
+### US-15.1 — Extension i18n EN + ES
+- **En tant qu'** utilisateur anglophone ou hispanophone
+- **Je veux** naviguer sur EasyLaw dans ma langue
+- **Afin d'** utiliser la plateforme sans barrière linguistique
+- **Critères d'acceptation :**
+  - [ ] Ajout locales `en` et `es` dans next-intl (base PT/FR existante)
+  - [ ] Traduction 100% de toutes les clés UI existantes
+  - [ ] Sélecteur de langue mis à jour (4 options)
+  - [ ] Tests i18n : aucune clé manquante en EN + ES
+- **Estimation :** 3 points
+
+### US-15.2 — Traduction Templates Contrats (4 langues)
+- **En tant qu'** utilisateur non-lusophone
+- **Je veux** générer mes contrats dans ma langue préférée
+- **Afin d'** en comprendre le contenu avant signature
+- **Critères d'acceptation :**
+  - [ ] Templates Carbone.io traduits EN + ES (PT + FR déjà existants)
+  - [ ] Validation traductions juridiques par Oliveira & Cameiro
+  - [ ] Contrat généré dans la langue du profil utilisateur
+  - [ ] PDF bilingue optionnel (langue choisie + PT)
+- **Estimation :** 5 points
+
+---
+
+## Épic 16 : Module Facturation & Abonnements
+
+**Objectif :** Gérer abonnements récurrents et plans Pro cabinet.
+
+### US-16.1 — Plans d'Abonnement
+- **En tant qu'** utilisateur
+- **Je veux** choisir un plan adapté à mes besoins
+- **Afin d'** accéder aux fonctionnalités correspondantes
+- **Critères d'acceptation :**
+  - [ ] Plans : Public (pay-per-use), Pro (mensuel), Cabinet (annuel)
+  - [ ] Tableau comparatif des plans visible sans connexion
+  - [ ] Upgrade / downgrade depuis le tableau de bord
+  - [ ] Accès fonctionnalités conditionné par plan (RBAC étendu)
+- **Estimation :** 5 points
+
+### US-16.2 — Facturation Récurrente
+- **En tant qu'** abonné Pro ou Cabinet
+- **Je veux** être facturé automatiquement chaque mois / an
+- **Afin de** ne pas interrompre mon accès
+- **Critères d'acceptation :**
+  - [ ] Stripe Subscriptions + MB Way récurrent (via ifthenpay)
+  - [ ] Facture PDF générée et envoyée par email à chaque renouvellement
+  - [ ] Gestion échec de paiement : 3 relances + suspension gracieuse
+  - [ ] Conformité TVA PT (NIF entreprise sur facture)
+- **Estimation :** 5 points
+
+### US-16.3 — Dashboard Facturation Client
+- **En tant qu'** abonné
+- **Je veux** consulter mon historique de facturation et gérer mon abonnement
+- **Afin d'** avoir une vue complète de mes dépenses EasyLaw
+- **Critères d'acceptation :**
+  - [ ] Historique paiements avec téléchargement PDF par facture
+  - [ ] Gestion moyen de paiement (changer carte / MB Way)
+  - [ ] Date prochain renouvellement + montant affiché
+  - [ ] Bouton annulation abonnement (avec période de grâce 30j)
+- **Estimation :** 3 points
+
+---
+
+## Récapitulatif Phase 2 & 3
+
+| Épic | User Stories | Points | Phase | Priorité |
+|------|-------------|--------|-------|----------|
+| 7 — CMD Signature | US-7.1 à 7.3 | 13 pts | P2 T4 2026 | MUST |
+| 8 — Contrats P2 | US-8.1 à 8.2 | 8 pts | P2 T4 2026 | MUST |
+| 9 — Recherche IA | US-9.1 à 9.4 | 21 pts | P2 T4 2026 | MUST |
+| 10 — Analyse Docs | US-10.1 à 10.3 | 16 pts | P2 T4 2026 | MUST |
+| 11 — Production + Word | US-11.1 à 11.4 | 23 pts | P2 T4 2026 | MUST |
+| 12 — GED & KMS | US-12.1 à 12.3 | 13 pts | P2 T4 2026 | MUST |
+| 13 — API REST | US-13.1 à 13.2 | 8 pts | P2 T4 2026 | SHOULD |
+| 14 — Visa Module | US-14.1 à 14.3 | 13 pts | P3 S1 2027 | MUST |
+| 15 — i18n complet | US-15.1 à 15.2 | 8 pts | P3 S1 2027 | SHOULD |
+| 16 — Facturation | US-16.1 à 16.3 | 13 pts | P3 S1 2027 | MUST |
+| **TOTAL P2+P3** | **26 user stories** | **136 points** | | |
+
+**Vitesse estimée :** 25-30 pts/sprint → **Phase 2 : ~4 sprints (T4 2026) / Phase 3 : ~2 sprints (S1 2027)**
+
+---
+
+*Mis à jour 2026-06-08 — EasyLaw CDC v2.0 PRO — Contrato Fácil × Oliveira & Carneiro — Porto, Portugal*

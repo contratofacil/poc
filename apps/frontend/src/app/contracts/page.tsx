@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Globe, FileText, ArrowRight, Loader2, Lock } from "lucide-react";
+import { Shield, Globe, FileText, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEasyLawAuth } from "@/lib/privy";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { apiFetch } from "@/lib/api";
 
 interface Template {
   id: string;
@@ -17,8 +19,6 @@ const translations = {
     title: "Générateur de Contrats",
     subtitle: "Sélectionnez un modèle validé juridiquement pour démarrer le questionnaire",
     loading: "Chargement des modèles...",
-    noToken: "Veuillez vous connecter pour générer un contrat.",
-    loginBtn: "Se connecter",
     generateBtn: "Générer ce contrat",
     emptyTemplates: "Aucun modèle disponible pour le moment.",
     badgeVerified: "Vérifié NRAU",
@@ -27,57 +27,42 @@ const translations = {
     title: "Gerador de Contratos",
     subtitle: "Selecione um modelo legalmente validado para iniciar o questionário",
     loading: "A carregar os modelos...",
-    noToken: "Por favor, inicie sessão para gerar um contrato.",
-    loginBtn: "Entrar",
     generateBtn: "Gerar este contrato",
     emptyTemplates: "Nenhum modelo disponível de momento.",
     badgeVerified: "Validado NRAU",
-  }
+  },
 };
 
-export default function ContractsCataloguePage() {
+function ContractsCatalogueContent() {
   const [lang, setLang] = useState<"FR" | "PT">("FR");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
-  const router = useRouter();
+  const { getAccessToken } = useEasyLawAuth();
 
   const t = translations[lang];
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    setToken(savedToken);
-
-    if (savedToken) {
-      fetchTemplates(savedToken);
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchTemplates = async (authToken: string) => {
-    try {
-      const res = await fetch("http://localhost:3001/api/contracts/templates", {
-        headers: {
-          Authorization: `Bearer ${authToken}`
+    const fetchTemplates = async () => {
+      try {
+        const token = await getAccessToken();
+        const res = await apiFetch("/api/contracts/templates", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.templates) {
+            setTemplates(data.templates);
+          }
         }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.templates) {
-          setTemplates(data.templates);
-        }
+      } catch (err) {
+        console.error("Failed to fetch templates:", err);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch templates:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  const toggleLanguage = () => {
-    setLang(prev => (prev === "FR" ? "PT" : "FR"));
-  };
+    fetchTemplates();
+  }, [getAccessToken]);
 
   return (
     <main className="min-h-screen bg-[#FAFAF8] flex flex-col antialiased selection:bg-[#C9A84C] selection:text-white">
@@ -93,7 +78,7 @@ export default function ContractsCataloguePage() {
               Coffre-Fort
             </Link>
             <button
-              onClick={toggleLanguage}
+              onClick={() => setLang((p) => (p === "FR" ? "PT" : "FR"))}
               type="button"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E2E8F0] text-sm text-[#1A365D] hover:bg-[#FAFAF8] transition"
             >
@@ -107,8 +92,8 @@ export default function ContractsCataloguePage() {
       {/* Main Content */}
       <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-12 relative">
         <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
-          <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-[#1A365D] blur-3xl"></div>
-          <div className="absolute bottom-[20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[#C9A84C] blur-3xl"></div>
+          <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-[#1A365D] blur-3xl" />
+          <div className="absolute bottom-[20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[#C9A84C] blur-3xl" />
         </div>
 
         <div className="mb-10 text-center relative z-10">
@@ -116,18 +101,7 @@ export default function ContractsCataloguePage() {
           <p className="text-gray-600 text-sm max-w-md mx-auto">{t.subtitle}</p>
         </div>
 
-        {!token ? (
-          <div className="max-w-md mx-auto bg-white border border-[#E2E8F0] shadow-lg rounded-2xl p-8 text-center relative z-10">
-            <Lock className="w-12 h-12 text-[#C9A84C] mx-auto mb-4" />
-            <p className="text-gray-600 text-sm mb-6">{t.noToken}</p>
-            <Link
-              href="/login"
-              className="inline-block py-2.5 px-6 bg-[#1A365D] hover:bg-[#1A365D]/90 text-white rounded-lg text-sm font-semibold transition shadow-md"
-            >
-              {t.loginBtn}
-            </Link>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 relative z-10">
             <Loader2 className="w-10 h-10 text-[#C9A84C] animate-spin mb-4" />
             <p className="text-gray-500 text-sm">{t.loading}</p>
@@ -166,5 +140,13 @@ export default function ContractsCataloguePage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function ContractsCataloguePage() {
+  return (
+    <AuthGuard>
+      <ContractsCatalogueContent />
+    </AuthGuard>
   );
 }

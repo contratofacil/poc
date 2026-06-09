@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app, { initDb } from './server';
-import { db, run, get } from './db';
+import { closeDb, run, get } from './db';
 
 describe('Epic 7: Admin Backoffice Paramétrage Endpoints', () => {
   let adminToken: string;
@@ -8,12 +8,11 @@ describe('Epic 7: Admin Backoffice Paramétrage Endpoints', () => {
   let testClientId: string;
 
   beforeAll(async () => {
-    process.env.NODE_ENV = 'test';
     await initDb();
   });
 
-  afterAll((done) => {
-    db.close(done);
+  afterAll(async () => {
+    await closeDb();
   });
 
   beforeEach(async () => {

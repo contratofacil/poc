@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ─── EasyLaw — Legal Prestige Design System ─────────────────────────────── */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ── Brand ── */
+  --color-brand-primary:    #1a3a5c;   /* Judiciary Blue */
+  --color-brand-secondary:  #d4a017;   /* Prestige Gold  */
+  --color-brand-primary-hover: #12293f;
+  --color-brand-secondary-hover: #b8891a;
+
+  /* ── Surfaces ── */
+  --color-surface-page:     #f8f6f1;   /* Warm White     */
+  --color-surface-card:     #ffffff;
+  --color-surface-mist:     #e8e4dd;   /* Borders/dividers */
+  --color-surface-sidebar:  #1a3a5c;
+
+  /* ── Text ── */
+  --color-text-primary:     #1a202c;
+  --color-text-secondary:   #4a5568;
+  --color-text-inverse:     #f8f6f1;
+  --color-text-muted:       #718096;
+
+  /* ── Status (Compliance tri-color) ── */
+  --color-status-green:         #16a34a;
+  --color-status-green-bg:      #dcfce7;
+  --color-status-green-border:  #bbf7d0;
+  --color-status-amber:         #d97706;
+  --color-status-amber-bg:      #fef3c7;
+  --color-status-amber-border:  #fde68a;
+  --color-status-red:           #dc2626;
+  --color-status-red-bg:        #fee2e2;
+  --color-status-red-border:    #fecaca;
+
+  /* ── Typography ── */
+  --font-sans:    var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif:   var(--font-playfair), ui-serif, Georgia, serif;
+  --font-mono:    var(--font-jetbrains), ui-monospace, monospace;
+
+  /* ── Radius ── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-modal: 0 10px 40px -8px rgb(26 58 92 / 0.18);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── CSS custom properties (runtime access) ─────────────────────────────── */
+:root {
+  /* Brand */
+  --brand-primary:           #1a3a5c;
+  --brand-secondary:         #d4a017;
+  --brand-primary-hover:     #12293f;
+  --brand-secondary-hover:   #b8891a;
+
+  /* Surfaces */
+  --surface-page:            #f8f6f1;
+  --surface-card:            #ffffff;
+  --surface-mist:            #e8e4dd;
+
+  /* Text */
+  --text-primary:            #1a202c;
+  --text-secondary:          #4a5568;
+  --text-inverse:            #f8f6f1;
+  --text-muted:              #718096;
+
+  /* Status */
+  --status-green:            #16a34a;
+  --status-green-bg:         #dcfce7;
+  --status-green-border:     #bbf7d0;
+  --status-amber:            #d97706;
+  --status-amber-bg:         #fef3c7;
+  --status-amber-border:     #fde68a;
+  --status-red:              #dc2626;
+  --status-red-bg:           #fee2e2;
+  --status-red-border:       #fecaca;
+
+  /* Background default */
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
 }
 
+/* ─── Base styles ─────────────────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  color: var(--brand-primary);
+}
+
+/* ─── Scrollbar (subtle) ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-mist); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #c5bfb5; }

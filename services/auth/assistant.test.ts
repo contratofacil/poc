@@ -1,19 +1,13 @@
 import request from 'supertest';
 import app, { initDb } from './server';
-import { db, run } from './db';
+import { closeDb, run, get } from './db';
 
 beforeAll(async () => {
-  process.env.NODE_ENV = 'test';
   await initDb();
 });
 
-afterAll((done) => {
-  db.close((err) => {
-    if (err) {
-      console.error('Error closing test database:', err);
-    }
-    done();
-  });
+afterAll(async () => {
+  await closeDb();
 });
 
 describe('Luso-Legal AI Assistant Endpoint Integration Tests', () => {
@@ -101,12 +95,7 @@ describe('Luso-Legal AI Assistant Endpoint Integration Tests', () => {
     expect(res.body.message).toContain('escaladée avec succès');
 
     // Verify it is in the database
-    const escalation = await new Promise<any>((resolve, reject) => {
-      db.get('SELECT * FROM lawyer_escalations WHERE id = ?', [res.body.escalationId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const escalation = await get<any>('SELECT * FROM lawyer_escalations WHERE id = ?', [res.body.escalationId]);
 
     expect(escalation).toBeDefined();
     expect(escalation.user_id).toBe(userId);

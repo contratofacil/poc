@@ -1,20 +1,14 @@
 import request from 'supertest';
 import app, { initDb } from './server';
-import { db, run, get } from './db';
+import { closeDb, run, get } from './db';
 
 beforeAll(async () => {
-  // Set NODE_ENV to test to use in-memory database
   process.env.NODE_ENV = 'test';
   await initDb();
 });
 
-afterAll((done) => {
-  db.close((err) => {
-    if (err) {
-      console.error('Error closing test database:', err);
-    }
-    done();
-  });
+afterAll(async () => {
+  await closeDb();
 });
 
 beforeEach(async () => {
@@ -708,12 +702,18 @@ describe('Epic 4: Compliance Tracking & Alerts', () => {
   });
 
   test('should list compliance items with correct colors and timelines', async () => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const pastDate = fmt(new Date(today.getTime() - 10 * 86400000));       // 10 days ago → red
+    const nearDate = fmt(new Date(today.getTime() + 4 * 86400000));        // 4 days ahead → orange
+    const completedDate = fmt(new Date(today.getTime() - 5 * 86400000));   // past, will be marked completed → green
+
     // 1. Overdue item (Red)
     await request(app)
       .post('/api/compliance')
       .send({
         title: 'Overdue Task',
-        due_date: '2026-05-10', // Overdue since current date is 2026-05-26
+        due_date: pastDate,
         category: 'Legal',
         user_id: testUserId
       });
@@ -723,7 +723,7 @@ describe('Epic 4: Compliance Tracking & Alerts', () => {
       .post('/api/compliance')
       .send({
         title: 'Near Due Task',
-        due_date: '2026-05-30', // Due in 4 days
+        due_date: nearDate,
         category: 'Regulatory',
         user_id: testUserId
       });
@@ -733,7 +733,7 @@ describe('Epic 4: Compliance Tracking & Alerts', () => {
       .post('/api/compliance')
       .send({
         title: 'Completed Task',
-        due_date: '2026-05-20',
+        due_date: completedDate,
         category: 'Audit',
         user_id: testUserId
       });
@@ -763,12 +763,17 @@ describe('Epic 4: Compliance Tracking & Alerts', () => {
   });
 
   test('should run alerts simulation and log mock emails', async () => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const nearDate = fmt(new Date(today.getTime() + 4 * 86400000));   // 4 days ahead → triggers alert
+    const farDate = fmt(new Date(today.getTime() + 120 * 86400000));  // 120 days ahead → no alert
+
     // Create near due item (Orange)
     await request(app)
       .post('/api/compliance')
       .send({
         title: 'Impôts Trimestriels',
-        due_date: '2026-05-30', // Near due (today is May 26)
+        due_date: nearDate,
         category: 'Fiscal',
         user_id: testUserId
       });
@@ -778,7 +783,7 @@ describe('Epic 4: Compliance Tracking & Alerts', () => {
       .post('/api/compliance')
       .send({
         title: 'Renouvellement Licences',
-        due_date: '2026-09-30',
+        due_date: farDate,
         category: 'Administrative',
         user_id: testUserId
       });

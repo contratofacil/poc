@@ -1,5 +1,5 @@
 # generated: 2026-05-26 11:12
-# last_updated: 2026-05-26 11:12
+# last_updated: 2026-06-08
 # project: EasyLaw
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-26 11:12
-last_updated: 2026-05-26 11:12
+last_updated: 2026-06-08
 project: EasyLaw
 project_key: NOKEY
 tracking_system: file-system
@@ -47,14 +47,14 @@ development_status:
   1-2-connexion: done
   1-3-profil-utilisateur: done
   1-4-rbac-cabinet: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: done
   2-1-formulaire-de-demande-nif: done
   2-2-upload-de-documents: done
   2-3-paiement-starter-pack: done
   2-4-suivi-de-dossier: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: done
   3-1-choix-du-type-de-contrat: done
@@ -79,3 +79,73 @@ development_status:
   6-1-stockage-documents: done
   6-2-audit-trail: done
   epic-6-retrospective: done
+
+  # ── PRIVY.IO INTEGRATION (transversal — tous modules) ────────────────────
+  epic-17: in-progress
+  17-0-fondation-privy: done
+  17-1-auth-privy: review
+  17-2-signature-onchain: backlog
+  17-3-paiements-crypto: backlog
+  17-4-did-identity: backlog
+  epic-17-retrospective: optional
+
+  # ── PHASE 2 — Consolidation T4 2026 ──────────────────────────────────────
+  epic-7: backlog
+  7-1-integ-api-ama: backlog
+  7-2-signature-cmd: backlog
+  7-3-fallback-qes: backlog
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-wizard-bail-commercial: backlog
+  8-2-wizard-nda: backlog
+  epic-8-retrospective: optional
+
+  epic-9: backlog
+  9-1-interface-recherche-ia: backlog
+  9-2-indexation-rag-sources: backlog
+  9-3-mode-deepdive: backlog
+  9-4-export-pdf-recherche: backlog
+  epic-9-retrospective: optional
+
+  epic-10: backlog
+  10-1-upload-batch-docs: backlog
+  10-2-analyse-structuree-ia: backlog
+  10-3-export-resultats-analyses: backlog
+  epic-10-retrospective: optional
+
+  epic-11: backlog
+  11-1-generation-doc-nl: backlog
+  11-2-word-addin: backlog
+  11-3-anonymisation-traduction: backlog
+  11-4-systeme-collaboratif: backlog
+  epic-11-retrospective: optional
+
+  epic-12: backlog
+  12-1-connexion-ged-cabinet: backlog
+  12-2-recherche-nl-bibliotheque: backlog
+  12-3-validation-reporting: backlog
+  epic-12-retrospective: optional
+
+  epic-13: backlog
+  13-1-api-rest-oauth2: backlog
+  13-2-endpoints-openapi: backlog
+  epic-13-retrospective: optional
+
+  # ── PHASE 3 — Expansion S1 2027 ──────────────────────────────────────────
+  epic-14: backlog
+  14-1-golden-visa: backlog
+  14-2-d7-digital-nomad: backlog
+  14-3-paiement-notifications-visa: backlog
+  epic-14-retrospective: optional
+
+  epic-15: backlog
+  15-1-i18n-en-es: backlog
+  15-2-traduction-templates-contrats: backlog
+  epic-15-retrospective: optional
+
+  epic-16: backlog
+  16-1-plans-abonnement: backlog
+  16-2-facturation-recurrente: backlog
+  16-3-dashboard-facturation: backlog
+  epic-16-retrospective: optional

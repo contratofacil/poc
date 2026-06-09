@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Shield, User, Globe, Download, Trash2, ArrowLeft, Check, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Shield, User, Globe, Download, Trash2, ArrowLeft, Check, AlertCircle, FileText, Loader2, Plus, X } from "lucide-react";
 import Link from "next/link";
+import { useEasyLawAuth } from "@/lib/privy";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { apiFetch } from "@/lib/api";
 
 interface UserProfile {
   id: string;
@@ -14,7 +17,8 @@ interface UserProfile {
   created_at: string;
 }
 
-export default function ProfilePage() {
+function ProfileContent() {
+  const { logout, getAccessToken } = useEasyLawAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [name, setName] = useState("");
   const [lang, setLang] = useState<"PT" | "FR">("PT");
@@ -25,51 +29,46 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    let cancelled = false;
 
-  const fetchProfile = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-
-    try {
-      const res = await fetch("http://localhost:3001/api/auth/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setProfile(data.user);
-        setName(data.user.name || "");
-        setLang(data.user.lang === "FR" ? "FR" : "PT");
-      } else {
-        setMessage({ type: "error", text: data.message || "Failed to load profile." });
+    const fetchProfile = async () => {
+      try {
+        const token = await getAccessToken();
+        const res = await apiFetch("/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setProfile(data.user);
+          setName(data.user.name || "");
+          setLang(data.user.lang === "FR" ? "FR" : "PT");
+        } else {
+          setMessage({ type: "error", text: data.message || "Failed to load profile." });
+        }
+      } catch (err) {
+        setMessage({ type: "error", text: "Network error occurred while fetching profile." });
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    } catch (err) {
-      setMessage({ type: "error", text: "Network error occurred while fetching profile." });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+
+    fetchProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getAccessToken]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     setMessage(null);
 
-    const token = localStorage.getItem("token");
     try {
-      const res = await fetch("http://localhost:3001/api/auth/profile", {
+      const token = await getAccessToken();
+      const res = await apiFetch("/api/auth/profile", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name, lang }),
       });
 
@@ -91,13 +90,11 @@ export default function ProfilePage() {
     setIsExporting(true);
     setMessage(null);
 
-    const token = localStorage.getItem("token");
     try {
-      const res = await fetch("http://localhost:3001/api/auth/profile/export", {
+      const token = await getAccessToken();
+      const res = await apiFetch("/api/auth/profile/export", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
@@ -131,20 +128,17 @@ export default function ProfilePage() {
     setIsDeleting(true);
     setMessage(null);
 
-    const token = localStorage.getItem("token");
     try {
-      const res = await fetch("http://localhost:3001/api/auth/profile", {
+      const token = await getAccessToken();
+      const res = await apiFetch("/api/auth/profile", {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        localStorage.removeItem("token");
         alert(lang === "FR" ? "Votre compte a été supprimé." : "A sua conta foi eliminada.");
-        window.location.href = "/";
+        logout();
       } else {
         setMessage({ type: "error", text: data.message || "Deletion failed." });
       }
@@ -319,5 +313,13 @@ export default function ProfilePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <AuthGuard>
+      <ProfileContent />
+    </AuthGuard>
   );
 }

@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Globe, FileText, Download, Clock, ShieldAlert, Loader2, Lock, ListFilter } from "lucide-react";
+import { Shield, Globe, FileText, Download, ShieldAlert, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useEasyLawAuth } from "@/lib/privy";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { apiFetch, getApiUrl } from "@/lib/api";
 
 interface VaultDocument {
   id: string;
@@ -24,71 +27,14 @@ interface AuditLog {
   timestamp: string;
 }
 
-export default function VaultPage() {
+function VaultContent() {
   const [lang, setLang] = useState<"FR" | "PT">("FR");
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    setToken(savedToken);
-
-    if (savedToken) {
-      fetchUserDataAndVault(savedToken);
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchUserDataAndVault = async (authToken: string) => {
-    try {
-      // 1. Fetch user role
-      const profileRes = await fetch("http://localhost:3001/api/auth/profile", {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      let role = "client";
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        if (data.success && data.user) {
-          role = data.user.role;
-          setUserRole(role);
-        }
-      }
-
-      // 2. Fetch documents
-      const docsRes = await fetch("http://localhost:3001/api/vault/documents", {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      if (docsRes.ok) {
-        const data = await docsRes.json();
-        if (data.success && data.documents) {
-          setDocuments(data.documents);
-        }
-      }
-
-      // 3. Fetch audit trail if admin
-      if (role === "admin_cabinet") {
-        const auditRes = await fetch("http://localhost:3001/api/vault/audit", {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
-        if (auditRes.ok) {
-          const data = await auditRes.json();
-          if (data.success && data.auditLogs) {
-            setAuditLogs(data.auditLogs);
-          }
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load vault data.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { getAccessToken } = useEasyLawAuth();
 
   const t = {
     FR: {
@@ -97,8 +43,6 @@ export default function VaultPage() {
       docsTitle: "Vos documents",
       auditTitle: "Journal d'audit (Cabinet Admins)",
       noDocs: "Aucun document dans votre coffre-fort pour le moment.",
-      loginRequired: "Veuillez vous connecter pour accéder à votre coffre-fort.",
-      loginBtn: "Se connecter",
       colName: "Nom",
       colType: "Type",
       colStatus: "Statut",
@@ -109,7 +53,6 @@ export default function VaultPage() {
       auditEntity: "Entité",
       auditIP: "Adresse IP",
       auditDate: "Date/Heure",
-      badgeVerified: "Sécurisé",
     },
     PT: {
       title: "Cofre-Forte Seguro",
@@ -117,8 +60,6 @@ export default function VaultPage() {
       docsTitle: "Os seus documentos",
       auditTitle: "Registo de auditoria (Cabinet Admins)",
       noDocs: "Nenhum documento no seu cofre-forte de momento.",
-      loginRequired: "Por favor, inicie sessão para aceder ao seu cofre-forte.",
-      loginBtn: "Entrar",
       colName: "Nome",
       colType: "Tipo",
       colStatus: "Estado",
@@ -129,9 +70,69 @@ export default function VaultPage() {
       auditEntity: "Entidade",
       auditIP: "Endereço IP",
       auditDate: "Data/Hora",
-      badgeVerified: "Seguro",
-    }
+    },
   }[lang];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchVaultData = async () => {
+      try {
+        const token = await getAccessToken();
+
+        const profileRes = await apiFetch("/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        let role = "client";
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          if (data.success && data.user) {
+            role = data.user.role;
+            if (!cancelled) setUserRole(role);
+          }
+        }
+
+        if (cancelled) return;
+
+        const docsRes = await apiFetch("/api/vault/documents", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (docsRes.ok) {
+          const data = await docsRes.json();
+          if (data.success && data.documents && !cancelled) {
+            setDocuments(data.documents);
+          }
+        }
+
+        if (cancelled) return;
+
+        if (role === "admin_cabinet") {
+          const auditRes = await apiFetch("/api/vault/audit", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (auditRes.ok) {
+            const data = await auditRes.json();
+            if (data.success && data.auditLogs && !cancelled) {
+              setAuditLogs(data.auditLogs);
+            }
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          setError("Failed to load vault data.");
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    fetchVaultData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getAccessToken]);
 
   return (
     <main className="min-h-screen bg-[#FAFAF8] flex flex-col antialiased selection:bg-[#C9A84C] selection:text-white">
@@ -147,7 +148,7 @@ export default function VaultPage() {
               Contrats
             </Link>
             <button
-              onClick={() => setLang(lang === "FR" ? "PT" : "FR")}
+              onClick={() => setLang((p) => (p === "FR" ? "PT" : "FR"))}
               type="button"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E2E8F0] text-sm text-[#1A365D] hover:bg-[#FAFAF8] transition"
             >
@@ -165,18 +166,11 @@ export default function VaultPage() {
           <p className="text-gray-600 text-sm max-w-md mx-auto">{t.subtitle}</p>
         </div>
 
-        {!token ? (
-          <div className="max-w-md mx-auto bg-white border border-[#E2E8F0] shadow-lg rounded-2xl p-8 text-center">
-            <Lock className="w-12 h-12 text-[#C9A84C] mx-auto mb-4" />
-            <p className="text-gray-600 text-sm mb-6">{t.loginRequired}</p>
-            <Link
-              href="/login"
-              className="inline-block py-2.5 px-6 bg-[#1A365D] hover:bg-[#1A365D]/90 text-white rounded-lg text-sm font-semibold transition shadow-md"
-            >
-              {t.loginBtn}
-            </Link>
-          </div>
-        ) : isLoading ? (
+        {error && (
+          <div className="text-center py-8 text-red-600 text-sm">{error}</div>
+        )}
+
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-10 h-10 text-[#C9A84C] animate-spin mb-4" />
             <p className="text-gray-500 text-sm">Chargement du coffre-fort...</p>
@@ -222,7 +216,7 @@ export default function VaultPage() {
                           </td>
                           <td className="py-4 text-right">
                             <a
-                              href={`http://localhost:3001${doc.url}`}
+                              href={getApiUrl(doc.url)}
                               download
                               className="inline-flex items-center gap-1 py-1.5 px-3 bg-[#1A365D] hover:bg-[#1A365D]/95 text-white font-semibold text-xs rounded-lg transition shadow-sm"
                             >
@@ -294,5 +288,13 @@ export default function VaultPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function VaultPage() {
+  return (
+    <AuthGuard>
+      <VaultContent />
+    </AuthGuard>
   );
 }
