@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Shield, Globe, ChevronLeft, ChevronRight, Check, AlertCircle, FileText, Loader2, Download } from "lucide-react";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 
 interface Question {
   key: string;
@@ -116,7 +117,7 @@ function WizardForm() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("http://localhost:3001/api/contracts/generate", {
+      const response = await fetch(getApiUrl("/api/contracts/generate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -146,7 +147,7 @@ function WizardForm() {
 
   const fetchOfficialPreview = async (contractId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/contracts/${contractId}/preview`, {
+      const response = await fetch(getApiUrl(`/api/contracts/${contractId}/preview`), {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -212,7 +213,7 @@ function WizardForm() {
                   {lang === "FR" ? "Accéder au Coffre-Fort" : "Aceder ao Cofre-Forte"}
                 </Link>
                 <a
-                  href={`http://localhost:3001/vault/${generatedContractId}.pdf`}
+                  href={getApiUrl(`/vault/${generatedContractId}.pdf`)}
                   download
                   className="flex items-center gap-2 py-2.5 px-6 bg-[#C9A84C] hover:bg-[#C9A84C]/90 text-white font-semibold text-sm rounded-lg transition shadow-md"
                 >

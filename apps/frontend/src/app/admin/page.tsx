@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Shield, Users, Mail, UserPlus, ArrowLeft, Check, AlertCircle, Settings, Edit3, Trash2, Plus, Sliders, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 
 interface UserProfile {
   id: string;
@@ -79,7 +80,7 @@ export default function AdminPage() {
 
     try {
       // 1. Fetch Profile
-      const profileRes = await fetch("http://localhost:3001/api/auth/profile", {
+      const profileRes = await fetch(getApiUrl("/api/auth/profile"), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const profileData = await profileRes.json();
@@ -96,7 +97,7 @@ export default function AdminPage() {
       }
 
       // 2. Fetch Users
-      const usersRes = await fetch("http://localhost:3001/api/admin/users", {
+      const usersRes = await fetch(getApiUrl("/api/admin/users"), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const usersData = await usersRes.json();
@@ -105,7 +106,7 @@ export default function AdminPage() {
       }
 
       // 3. Fetch Clauses
-      const clausesRes = await fetch("http://localhost:3001/api/admin/clauses", {
+      const clausesRes = await fetch(getApiUrl("/api/admin/clauses"), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const clausesData = await clausesRes.json();
@@ -114,7 +115,7 @@ export default function AdminPage() {
       }
 
       // 4. Fetch System Settings
-      const settingsRes = await fetch("http://localhost:3001/api/admin/settings", {
+      const settingsRes = await fetch(getApiUrl("/api/admin/settings"), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const settingsData = await settingsRes.json();
@@ -142,7 +143,7 @@ export default function AdminPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/invite", {
+      const res = await fetch(getApiUrl("/api/auth/invite"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -173,7 +174,7 @@ export default function AdminPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch(`http://localhost:3001/api/admin/users/${userId}/role`, {
+      const res = await fetch(getApiUrl(`/api/admin/users/${userId}/role`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -207,7 +208,7 @@ export default function AdminPage() {
       let res;
       if (isEditingClause) {
         // Edit Clause
-        res = await fetch(`http://localhost:3001/api/admin/clauses/${isEditingClause}`, {
+        res = await fetch(getApiUrl(`/api/admin/clauses/${isEditingClause}`), {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -220,7 +221,7 @@ export default function AdminPage() {
         });
       } else {
         // Create Clause
-        res = await fetch("http://localhost:3001/api/admin/clauses", {
+        res = await fetch(getApiUrl("/api/admin/clauses"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -254,7 +255,7 @@ export default function AdminPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch(`http://localhost:3001/api/admin/clauses/${clauseId}`, {
+      const res = await fetch(getApiUrl(`/api/admin/clauses/${clauseId}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -279,7 +280,7 @@ export default function AdminPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://localhost:3001/api/admin/settings", {
+      const res = await fetch(getApiUrl("/api/admin/settings"), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

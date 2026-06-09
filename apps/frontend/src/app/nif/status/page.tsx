@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Shield, Globe, Check, AlertCircle, Clock, CheckCircle, ArrowRight, RefreshCw, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 
 const translations = {
   FR: {
@@ -134,7 +135,7 @@ export default function NifStatusPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:3001/api/nif/status?user_id=${uid}`);
+      const response = await fetch(getApiUrl(`/api/nif/status?user_id=${uid}`));
       if (!response.ok) {
         if (response.status === 404) {
           setStatusData(null);
@@ -169,7 +170,7 @@ export default function NifStatusPage() {
     setPaymentLoading(true);
     try {
       // 1. Create a stripe payment
-      const paymentRes = await fetch("http://localhost:3001/api/nif/payment", {
+      const paymentRes = await fetch(getApiUrl("/api/nif/payment"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -184,7 +185,7 @@ export default function NifStatusPage() {
       const paymentData = await paymentRes.json();
 
       // 2. Trigger mock webhook
-      const webhookRes = await fetch("http://localhost:3001/api/nif/payment/webhook", {
+      const webhookRes = await fetch(getApiUrl("/api/nif/payment/webhook"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
