@@ -2,25 +2,28 @@
 
 import { useEffect } from "react";
 import { useLogin } from "@privy-io/react-auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Globe } from "lucide-react";
 import { useEasyLawAuth } from "@/lib/privy";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { authenticated } = useEasyLawAuth();
+
+  const redirectTo = searchParams.get("redirect") || "/contracts";
 
   const { login } = useLogin({
     onComplete: () => {
-      router.push("/");
+      router.push(redirectTo);
     },
   });
 
   useEffect(() => {
     if (authenticated) {
-      router.push("/");
+      router.push(redirectTo);
     }
-  }, [authenticated, router]);
+  }, [authenticated, router, redirectTo]);
 
   return (
     <main className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 antialiased selection:bg-[#C9A84C] selection:text-white">
