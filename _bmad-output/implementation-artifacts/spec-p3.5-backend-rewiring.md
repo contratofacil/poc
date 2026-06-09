@@ -1,6 +1,6 @@
 ---
 id: spec-p3.5-backend-rewiring
-status: in-progress
+status: done
 created: 2026-06-09
 ---
 
@@ -217,19 +217,19 @@ Remove the `Données simulées · mock data MVP` label from the "État global" c
 
 ## Acceptance criteria
 
-- [ ] AC-1 Page loads with live data from `GET /api/compliance` (no mock import).
-- [ ] AC-2 Loading state shown while fetch is in-flight.
-- [ ] AC-3 Error state shown if fetch fails (network error / non-2xx).
-- [ ] AC-4 "Ajouter une obligation" button opens modal; form submits to `POST /api/compliance`; new item appears in list.
-- [ ] AC-5 "Marquer comme préparé" on ObligationCard calls `PUT /api/compliance/:id` with `{ status: "completed" }`.
-- [ ] AC-6 "Supprimer" (trash icon) shows browser confirm dialog then calls `DELETE /api/compliance/:id`; item removed from list.
-- [ ] AC-7 "Voir le détail" opens ObligationDetailModal with full obligation data.
-- [ ] AC-8 Email alerts log section renders below list; "Simuler alertes" button calls `POST /api/compliance/simulate-alerts`.
-- [ ] AC-9 EidvProviderSelector renders collapsed; user can expand, select provider, selection persists in localStorage.
-- [ ] AC-10 No hardcoded hex colors — all styling via CSS var tokens.
-- [ ] AC-11 All interactive elements keyboard-accessible (Tab/Enter/Escape on modals).
-- [ ] AC-12 TypeScript strict — no `any`, no `@ts-ignore`.
-- [ ] AC-13 No new packages added to `package.json`.
+- [x] AC-1 Page loads with live data from `GET /api/compliance` (no mock import).
+- [x] AC-2 Loading state shown while fetch is in-flight.
+- [x] AC-3 Error state shown if fetch fails (network error / non-2xx).
+- [x] AC-4 "Ajouter une obligation" button opens modal; form submits to `POST /api/compliance`; new item appears in list.
+- [x] AC-5 "Marquer comme préparé" on ObligationCard calls `PUT /api/compliance/:id` with `{ status: "completed" }`.
+- [x] AC-6 "Supprimer" (trash icon) shows browser confirm dialog then calls `DELETE /api/compliance/:id`; item removed from list.
+- [x] AC-7 "Voir le détail" opens ObligationDetailModal with full obligation data.
+- [x] AC-8 Email alerts log section renders below list; "Simuler alertes" button calls `POST /api/compliance/simulate-alerts`.
+- [x] AC-9 EidvProviderSelector renders collapsed; user can expand, select provider, selection persists in localStorage.
+- [x] AC-10 No hardcoded hex colors — all styling via CSS var tokens.
+- [x] AC-11 All interactive elements keyboard-accessible (Tab/Enter/Escape on modals).
+- [x] AC-12 TypeScript strict — no `any`, no `@ts-ignore`.
+- [x] AC-13 No new packages added to `package.json`.
 
 ---
 
@@ -247,3 +247,4 @@ Remove the `Données simulées · mock data MVP` label from the "État global" c
 | Date | Change |
 |---|---|
 | 2026-06-09 | Initial spec created |
+| 2026-06-09 | Implementation complete — all ACs verified via `tsc` + `next build` |

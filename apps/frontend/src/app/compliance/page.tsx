@@ -6,23 +6,38 @@ import { AppShell } from "@/components/site/AppShell";
 import { ComplianceStatusBar } from "@/components/compliance/ComplianceStatusBar";
 import { ObligationCard } from "@/components/compliance/ObligationCard";
 import { ObligationListItem } from "@/components/compliance/ObligationListItem";
+import { AddObligationModal } from "@/components/compliance/AddObligationModal";
+import { ObligationDetailModal } from "@/components/compliance/ObligationDetailModal";
+import { EmailAlertsLog } from "@/components/compliance/EmailAlertsLog";
+import { EidvProviderSelector } from "@/components/compliance/EidvProviderSelector";
 import {
   countByStatus,
   filterObligations,
+  type Obligation,
   type ObligationFilter,
 } from "@/lib/compliance/types";
-import { MOCK_OBLIGATIONS } from "@/lib/compliance/mockData";
+import { useCompliance } from "@/lib/compliance/useCompliance";
 
 /**
- * `/compliance` Dashboard (P3 / D-008, Flow 2 Miguel).
- *
- * Visual upgrade from mock 03-compliance-dashboard.html. Mock data hardcodée —
- * re-wiring `/api/compliance` endpoint déféré à P3.5 (cf. deferred-work).
+ * `/compliance` Dashboard (P3 / D-008, P3.5 backend re-wiring).
  */
 export default function ComplianceDashboard() {
   const [filter, setFilter] = React.useState<ObligationFilter>("all");
+  const [showAddForm, setShowAddForm] = React.useState(false);
+  const [detailObligation, setDetailObligation] = React.useState<Obligation | null>(null);
 
-  const all = MOCK_OBLIGATIONS;
+  const {
+    obligations,
+    alertLogs,
+    isLoading,
+    error,
+    add,
+    togglePrepared,
+    remove,
+    simulateAlerts,
+  } = useCompliance();
+
+  const all = obligations;
   const counts = countByStatus(all);
   const urgent = all.find((o) => o.isUrgent);
   const filtered = filterObligations(all, filter).filter((o) => !o.isUrgent);
@@ -30,6 +45,20 @@ export default function ComplianceDashboard() {
   const VISIBLE_LIMIT = 5;
   const visibleRows = filtered.slice(0, VISIBLE_LIMIT);
   const remaining = filtered.length - visibleRows.length;
+
+  const openDetail = (o: Obligation) => setDetailObligation(o);
+
+  const handleDelete = async (o: Obligation) => {
+    if (!window.confirm("Supprimer cette obligation ?")) return;
+    try {
+      await remove(o.id);
+      if (detailObligation?.id === o.id) {
+        setDetailObligation(null);
+      }
+    } catch {
+      window.alert("Impossible de supprimer l'obligation.");
+    }
+  };
 
   return (
     <AppShell
@@ -56,6 +85,7 @@ export default function ComplianceDashboard() {
           </div>
           <button
             type="button"
+            onClick={() => setShowAddForm(true)}
             className="hidden md:inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
             style={{ background: "var(--brand-primary)", color: "var(--surface-page)" }}
           >
@@ -66,8 +96,22 @@ export default function ComplianceDashboard() {
         <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
           <span lang="pt">Import Lda</span> · NIF entreprise{" "}
           <span style={{ fontFamily: "var(--font-mono)" }}>PT123456789</span>{" "}
-          · {all.length} obligations suivies
+          · {isLoading ? "…" : all.length} obligations suivies
         </p>
+
+        {error && (
+          <div
+            className="mb-6 rounded-lg border px-4 py-3 text-sm"
+            style={{
+              background: "var(--status-red-bg)",
+              borderColor: "var(--status-red-border)",
+              color: "var(--status-red)",
+            }}
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
 
         {/* ─── État global ─── */}
         <section
@@ -86,25 +130,35 @@ export default function ComplianceDashboard() {
             >
               État global
             </h2>
-            <span className="text-xs text-[var(--text-muted)]">
-              Données simulées · mock data MVP
-            </span>
           </div>
-          <ComplianceStatusBar counts={counts} />
+          {isLoading ? <StatusBarSkeleton /> : <ComplianceStatusBar counts={counts} />}
         </section>
 
         {/* ─── Action urgente ─── */}
-        {urgent && (
-          <section aria-labelledby="urgent-heading" className="mb-8">
-            <h2
-              id="urgent-heading"
-              className="text-lg font-semibold mb-3"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Action urgente
-            </h2>
-            <ObligationCard obligation={urgent} />
+        {isLoading ? (
+          <section className="mb-8" aria-hidden="true">
+            <div className="h-5 w-32 rounded animate-pulse mb-3" style={{ background: "var(--surface-mist)" }} />
+            <CardSkeleton />
           </section>
+        ) : (
+          urgent && (
+            <section aria-labelledby="urgent-heading" className="mb-8">
+              <h2
+                id="urgent-heading"
+                className="text-lg font-semibold mb-3"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Action urgente
+              </h2>
+              <ObligationCard
+                obligation={urgent}
+                onPrepare={() => openDetail(urgent)}
+                onMarkPrepared={() => togglePrepared(urgent.id, urgent.backendStatus ?? "pending")}
+                onViewDetail={() => openDetail(urgent)}
+                onDelete={() => handleDelete(urgent)}
+              />
+            </section>
+          )
         )}
 
         {/* ─── List view ─── */}
@@ -117,41 +171,45 @@ export default function ComplianceDashboard() {
             >
               Toutes les obligations
             </h2>
-            <div className="flex items-center gap-2" role="tablist" aria-label="Filtres obligations">
-              <FilterTab
-                label={`Tous (${all.filter((o) => !o.isUrgent).length})`}
-                active={filter === "all"}
-                onClick={() => setFilter("all")}
-              />
-              <FilterTab
-                label={`À venir (${counts.amber + counts.red - (urgent ? 1 : 0)})`}
-                active={filter === "upcoming"}
-                onClick={() => setFilter("upcoming")}
-              />
-              <FilterTab
-                label={`À jour (${counts.green})`}
-                active={filter === "current"}
-                onClick={() => setFilter("current")}
-              />
-            </div>
+            {!isLoading && (
+              <div className="flex items-center gap-2" role="tablist" aria-label="Filtres obligations">
+                <FilterTab
+                  label={`Tous (${all.filter((o) => !o.isUrgent).length})`}
+                  active={filter === "all"}
+                  onClick={() => setFilter("all")}
+                />
+                <FilterTab
+                  label={`À venir (${counts.amber + counts.red - (urgent ? 1 : 0)})`}
+                  active={filter === "upcoming"}
+                  onClick={() => setFilter("upcoming")}
+                />
+                <FilterTab
+                  label={`À jour (${counts.green})`}
+                  active={filter === "current"}
+                  onClick={() => setFilter("current")}
+                />
+              </div>
+            )}
           </div>
 
           <div
             className="rounded-xl border bg-white shadow-[var(--shadow-card)] divide-y"
             style={{ borderColor: "var(--surface-mist)" }}
           >
-            {visibleRows.length === 0 ? (
+            {isLoading ? (
+              <ListSkeleton />
+            ) : visibleRows.length === 0 ? (
               <div className="p-8 text-center text-sm text-[var(--text-muted)]">
                 Aucune obligation dans cette catégorie.
               </div>
             ) : (
               visibleRows.map((o) => (
-                <ObligationListItem key={o.id} obligation={o} />
+                <ObligationListItem key={o.id} obligation={o} onClick={() => openDetail(o)} />
               ))
             )}
           </div>
 
-          {remaining > 0 && (
+          {!isLoading && remaining > 0 && (
             <button
               type="button"
               aria-disabled
@@ -163,7 +221,27 @@ export default function ComplianceDashboard() {
             </button>
           )}
         </section>
+
+        {!isLoading && (
+          <>
+            <EmailAlertsLog logs={alertLogs} onSimulate={simulateAlerts} />
+            <EidvProviderSelector />
+          </>
+        )}
       </div>
+
+      <AddObligationModal
+        open={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        onSubmit={add}
+      />
+
+      <ObligationDetailModal
+        obligation={detailObligation}
+        open={detailObligation !== null}
+        onClose={() => setDetailObligation(null)}
+        onTogglePrepared={togglePrepared}
+      />
     </AppShell>
   );
 }
@@ -202,5 +280,49 @@ function FilterTab({
     >
       {label}
     </button>
+  );
+}
+
+function StatusBarSkeleton() {
+  return (
+    <div className="flex gap-3" aria-hidden="true">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="flex-1 h-16 rounded-lg animate-pulse"
+          style={{ background: "var(--surface-mist)" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div
+      className="rounded-xl border-2 p-6 animate-pulse"
+      style={{ borderColor: "var(--surface-mist)", background: "white" }}
+    >
+      <div className="h-5 w-2/3 rounded mb-3" style={{ background: "var(--surface-mist)" }} />
+      <div className="h-4 w-full rounded mb-2" style={{ background: "var(--surface-mist)" }} />
+      <div className="h-4 w-4/5 rounded" style={{ background: "var(--surface-mist)" }} />
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center gap-4 p-5 animate-pulse" aria-hidden="true">
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--surface-mist)" }} />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-1/2 rounded" style={{ background: "var(--surface-mist)" }} />
+            <div className="h-3 w-1/3 rounded" style={{ background: "var(--surface-mist)" }} />
+          </div>
+          <div className="h-6 w-16 rounded-full" style={{ background: "var(--surface-mist)" }} />
+        </div>
+      ))}
+    </>
   );
 }

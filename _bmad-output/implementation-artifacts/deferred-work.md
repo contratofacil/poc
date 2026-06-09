@@ -51,7 +51,7 @@ Original intent contained 4 priorities. Scope narrowed to P1 only; P2/P3/P4 defe
 
 ---
 
-### P3.5 — Re-wiring backend `/api/compliance` to P3 components *(deferred)*
+### P3.5 — Re-wiring backend `/api/compliance` to P3 components ✓ *SHIPPED 2026-06-09*
 
 **Context :** P3 remplace la page `/compliance` par un visual-first dashboard avec mock data. L'API `/api/compliance` existe toujours côté backend mais n'est plus connectée au frontend.
 
@@ -69,6 +69,8 @@ Original intent contained 4 priorities. Scope narrowed to P1 only; P2/P3/P4 defe
 - `apps/frontend/src/components/compliance/ObligationListItem.tsx` → activer click handler
 
 **Dépend de :** auth Privy stable + `/api/compliance` endpoint opérationnel.
+
+**Delivered :** `api.ts`, `useCompliance()`, `AddObligationModal`, `ObligationDetailModal`, `EmailAlertsLog`, `EidvProviderSelector` + page/card wiring. CRUD + alertes email reconnectés. `spec-p3.5-backend-rewiring.md` status: done.
 
 ---
 

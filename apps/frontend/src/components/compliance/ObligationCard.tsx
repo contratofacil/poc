@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight, Trash2 } from "lucide-react";
 import type { Obligation } from "@/lib/compliance/types";
 
 interface ObligationCardProps {
@@ -9,6 +9,7 @@ interface ObligationCardProps {
   onPrepare?: () => void;
   onMarkPrepared?: () => void;
   onViewDetail?: () => void;
+  onDelete?: () => void;
 }
 
 /**
@@ -20,6 +21,7 @@ export function ObligationCard({
   onPrepare,
   onMarkPrepared,
   onViewDetail,
+  onDelete,
 }: ObligationCardProps) {
   const titleId = React.useId();
   const [day, monthRaw] = o.dueDate.split("-").slice(1).reverse();
@@ -108,6 +110,21 @@ export function ObligationCard({
               Voir le détail
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex items-center gap-1 rounded-md border bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--status-red-bg)] focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+                style={{
+                  borderColor: "var(--status-red-border)",
+                  color: "var(--status-red)",
+                }}
+                aria-label="Supprimer cette obligation"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                Supprimer
+              </button>
+            )}
           </div>
         </div>
 

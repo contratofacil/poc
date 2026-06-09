@@ -1,11 +1,35 @@
 /**
- * Compliance — domain types (P3 / D-008).
- * Mock data au MVP — re-wiring backend tracé en deferred-work (P3.5).
+ * Compliance — domain types (P3 / D-008, P3.5 backend re-wiring).
  */
 
 import type { ComplianceStatus } from "@/styles/tokens";
 
 import type { ReactNode } from "react";
+
+export interface ComplianceItem {
+  id: string;
+  title: string;
+  description: string | null;
+  due_date: string;
+  status: "pending" | "completed";
+  category: string;
+  user_id: string | null;
+  created_at: string;
+  days_left: number;
+  color: "red" | "orange" | "green";
+}
+
+/** Backend compliance row alias (P3.5). */
+export type ApiObligation = ComplianceItem;
+
+export interface AlertLog {
+  id: string;
+  compliance_item_id: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  sent_at: string;
+}
 
 export interface Obligation {
   id: string;
@@ -20,6 +44,10 @@ export interface Obligation {
   dueDate: string;
   /** Tag urgent visuel (renders ObligationCard au lieu de row) */
   isUrgent?: boolean;
+  /** Catégorie backend (Fiscal, Juridique, …) */
+  category?: string;
+  /** Statut workflow backend */
+  backendStatus?: "pending" | "completed";
 }
 
 export type ObligationFilter = "all" | "upcoming" | "current";
