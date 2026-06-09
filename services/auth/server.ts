@@ -5,7 +5,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { initDb, run, get, all, db } from './db';
+import { initDb, run, get, all, closeDb } from './db';
 import { sendVerificationEmail } from './email';
 
 // Load environment variables
@@ -99,7 +99,8 @@ app.post('/api/auth/register', async (req: Request, res: Response): Promise<void
     await sendVerificationEmail(email, verificationToken);
 
     // 7. Generate JWT Token
-    const jwtSecret = process.env.JWT_SECRET || 'supersecretjwttokenkey12345!';
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) { throw new Error('JWT_SECRET environment variable is required'); }
     const token = jwt.sign(
       { id: userId, email, role },
       jwtSecret,
@@ -160,7 +161,8 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return;
     }
     const token = authHeader.split(' ')[1];
-    const jwtSecret = process.env.JWT_SECRET || 'supersecretjwttokenkey12345!';
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) { throw new Error('JWT_SECRET environment variable is required'); }
     const decoded = jwt.verify(token, jwtSecret) as { id: string; email: string; role: string };
     
     // Verify user exists and is not deleted
@@ -241,7 +243,8 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
     }
 
     // 4. Generate JWT Token
-    const jwtSecret = process.env.JWT_SECRET || 'supersecretjwttokenkey12345!';
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) { throw new Error('JWT_SECRET environment variable is required'); }
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       jwtSecret,
@@ -1641,6 +1644,11 @@ app.put('/api/admin/users/:id/role', authMiddleware, checkRole(['admin_cabinet']
     console.error('Error updating user role:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
+});
+
+// Health check endpoint for Railway
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // Initializing Server if run directly
