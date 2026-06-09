@@ -2,7 +2,7 @@
 title: 'P5 — NIF Wizard Visual Redesign'
 type: 'feature'
 created: '2026-06-09'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '6f1f1bed9563f5d4388f85f48fa9be446f013ba5'
 context: []
 ---
@@ -54,7 +54,7 @@ context: []
 
 **Execution:**
 
-- [ ] `apps/frontend/src/app/nif/page.tsx` -- Remplacer le shell visuel par le layout mock (top bar + stepper + main) et remap les steps :
+- [x] `apps/frontend/src/app/nif/page.tsx` -- Remplacer le shell visuel par le layout mock (top bar + stepper + main) et remap les steps :
 
   **Mapping des steps :**
   - Step 1 = Informations (formulaire existant, inchangé)
@@ -102,6 +102,20 @@ context: []
 - `tsc --noEmit` et `next build` passent sans erreur
 
 ## Spec Change Log
+
+### Review — 2026-06-09
+
+**3 bugs found and fixed post-review:**
+1. Upload error split-brain: catch block now also clears `formData.passport_path` / `proof_of_address_path` (was clearing only filename state, leaving stale API path).
+2. Re-upload same file silently ignored: `e.currentTarget.value = ""` added in `handleFileUpload` so `onChange` fires even when selecting the same file again.
+3. Hardcoded French "Téléversé" in `UploadedCard`: moved to `t.uploaded` (FR: "Téléversé", PT: "Carregado").
+
+**Deferred (pre-existing, out of this PR's scope):**
+- Duplicate POST on back-nav from Payment step (backend must be idempotent; no client guard added — same behavior as before redesign)
+- Upload race condition (concurrent selections race to set `formData` path — pre-existing, no AbortController)
+- Stepper shows "Paiement" on both Review and Payment steps — per-spec design, Review+Payment intentionally share stepper step 4
+
+**All ACs passed** (AC-4 was partial: disabled button shows hint text instead of error banner — acceptable UX improvement).
 
 ## Design Notes
 
