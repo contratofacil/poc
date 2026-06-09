@@ -7,6 +7,15 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { initDb, run, get, all, closeDb } from './db';
 import { sendVerificationEmail } from './email';
+import { assertVaultConfig } from './storage/r2-client';
+import {
+  prepareUpload,
+  completeUpload,
+  putDocument,
+  getDocumentBuffer,
+  getDocumentByR2Key,
+  VaultDocumentRow,
+} from './storage/vault';
 
 // Load environment variables
 dotenv.config();
@@ -675,19 +684,113 @@ app.get('/api/nif/status', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// Mock File Upload Endpoint
-app.post('/api/nif/upload', (req: Request, res: Response): void => {
+// ---------------------------------------------------------------------------
+// Story 6-3 — Vault uploads via R2 + envelope encryption
+// ---------------------------------------------------------------------------
+
+const nifUploadSchema = z.object({
+  filename: z.string().min(1).max(255).optional(),
+  mime_type: z.string().min(1).max(255).optional().default('application/pdf'),
+  entity_id: z.string().nullable().optional(),
+});
+
+// POST /api/nif/upload — create a vault_documents row and return a presigned PUT URL
+app.post('/api/nif/upload', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const filename = req.body.filename || 'document.pdf';
-    const mockPath = `/uploads/${crypto.randomUUID()}-${filename}`;
+    const parsed = nifUploadSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        errors: parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }))
+      });
+      return;
+    }
+    const { filename, mime_type, entity_id } = parsed.data;
+    const userId = (req as any).user.id;
+
+    const result = await prepareUpload({
+      user_id: userId,
+      entity_type: 'nif_piece',
+      entity_id: entity_id ?? null,
+      filename: filename || 'document.pdf',
+      mime_type,
+    });
+
+    await logAudit(userId, 'PREPARE_VAULT_UPLOAD', 'vault_document', result.documentId, req);
+
+    // Backwards-compat: `filepath` mirrors `r2_key` so legacy callers don't break entirely.
     res.status(200).json({
       success: true,
-      filepath: mockPath
+      filepath: result.r2_key,
+      documentId: result.documentId,
+      uploadUrl: result.uploadUrl,
+      r2_key: result.r2_key,
+      expiresIn: result.expiresIn,
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error preparing vault upload:', error?.message || error);
     res.status(500).json({
       success: false,
-      message: 'Failed to upload document'
+      message: 'Failed to prepare document upload'
+    });
+  }
+});
+
+const nifUploadCompleteSchema = z.object({
+  documentId: z.string().uuid({ message: 'documentId must be a UUID' }),
+  sha256: z.string().regex(/^[0-9a-fA-F]{64}$/, { message: 'sha256 must be a 64-char hex string' }),
+});
+
+// POST /api/nif/upload/complete — verify presence, encrypt server-side, mark ready
+app.post('/api/nif/upload/complete', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = nifUploadCompleteSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        errors: parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }))
+      });
+      return;
+    }
+    const { documentId, sha256 } = parsed.data;
+    const userId = (req as any).user.id;
+
+    // RBAC: enforce ownership before doing R2 work.
+    const row = await get<VaultDocumentRow>(
+      'SELECT * FROM vault_documents WHERE id = ?',
+      [documentId]
+    );
+    if (!row) {
+      res.status(404).json({ success: false, message: 'Document not found' });
+      return;
+    }
+    if (row.user_id !== userId) {
+      await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    const updated = await completeUpload(documentId, sha256);
+    await logAudit(userId, 'UPLOAD_DOCUMENT_COMPLETE', 'vault_document', documentId, req);
+
+    res.status(200).json({
+      success: true,
+      documentId: updated.id,
+      status: updated.status,
+      size_bytes: updated.size_bytes,
+      sha256: updated.sha256,
+    });
+  } catch (error: any) {
+    const msg = error?.message || 'Internal error';
+    // Hash mismatch is a 400 (client-controlled input)
+    if (/SHA-256 mismatch/.test(msg)) {
+      res.status(400).json({ success: false, message: msg });
+      return;
+    }
+    console.error('Error completing vault upload:', msg);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete document upload'
     });
   }
 });
