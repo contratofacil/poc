@@ -7,7 +7,7 @@ story: 3
 
 # Story 6.3 : Stockage R2 + Chiffrement Envelope
 
-Status: ready-for-dev
+Status: review
 
 > **Pourquoi cette story existe** : l'Épic 6 (Coffre-Fort & Sécurité) a été clôturé sur un MVP qui stocke les PDF sur le disque local du service `auth` et n'a aucun chiffrement applicatif. L'architecture cible ([architecture §2.3, §4.1](../planning-artifacts/architecture/easylaw-architecture-2026-05-26.md)) impose un stockage S3-compatible UE chiffré AES-256-GCM avant tout passage en production. Cette story comble cet écart en intégrant Cloudflare R2 (juridiction UE) avec envelope encryption applicative et upload direct par URL signée.
 
@@ -76,43 +76,43 @@ Status: ready-for-dev
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — Module storage R2 + envelope encryption** (AC: 1, 2, 7)
-  - [ ] T1.1 — Installer `@aws-sdk/client-s3@^3.1063` et `@aws-sdk/s3-request-presigner@^3.1063` dans `services/auth/package.json`.
-  - [ ] T1.2 — Créer `services/auth/storage/r2-client.ts` : factory `getR2Client()` qui lit les variables d'env, monte `S3Client({ region: 'auto', endpoint, credentials })` avec endpoint juridictionnel EU. Cache la singleton.
-  - [ ] T1.3 — Créer `services/auth/storage/envelope.ts` : `encryptFile(plaintext: Buffer): { ciphertext: Buffer, encryptedDek: string }` et `decryptFile(ciphertext: Buffer, encryptedDek: string): Buffer`. Format binaire `[IV(12) | AuthTag(16) | ciphertext]` pour fichier et pour DEK chiffrée. KEK lue de `VAULT_KEK_B64`.
-  - [ ] T1.4 — Créer `services/auth/storage/vault.ts` : API de haut niveau (`putDocument`, `getDocument`, `presignPut`, `presignGet`, `headObject`, `deleteDocument`) qui orchestre R2 + envelope encryption + table `vault_documents`.
-  - [ ] T1.5 — Garde de démarrage dans `server.ts` : `assertVaultConfig()` au boot — refus si prod sans toutes les vars R2/KEK.
+- [x] **T1 — Module storage R2 + envelope encryption** (AC: 1, 2, 7)
+  - [x] T1.1 — Installer `@aws-sdk/client-s3@^3.1063` et `@aws-sdk/s3-request-presigner@^3.1063` dans `services/auth/package.json`.
+  - [x] T1.2 — Créer `services/auth/storage/r2-client.ts` : factory `getR2Client()` qui lit les variables d'env, monte `S3Client({ region: 'auto', endpoint, credentials })` avec endpoint juridictionnel EU. Cache la singleton.
+  - [x] T1.3 — Créer `services/auth/storage/envelope.ts` : `encryptFile(plaintext: Buffer): { ciphertext: Buffer, encryptedDek: string }` et `decryptFile(ciphertext: Buffer, encryptedDek: string): Buffer`. Format binaire `[IV(12) | AuthTag(16) | ciphertext]` pour fichier et pour DEK chiffrée. KEK lue de `VAULT_KEK_B64`.
+  - [x] T1.4 — Créer `services/auth/storage/vault.ts` : API de haut niveau (`putDocument`, `getDocument`, `presignPut`, `presignGet`, `headObject`, `deleteDocument`) qui orchestre R2 + envelope encryption + table `vault_documents`.
+  - [x] T1.5 — Garde de démarrage dans `server.ts` : `assertVaultConfig()` au boot — refus si prod sans toutes les vars R2/KEK.
 
-- [ ] **T2 — Migration schéma `vault_documents`** (AC: 5)
-  - [ ] T2.1 — Étendre `services/auth/db-schema.sql` avec la table `vault_documents` et ses index. Le DDL doit fonctionner sur PG et SQLite (types `TEXT`/`INTEGER` génériques, pas de `JSONB`).
-  - [ ] T2.2 — Vérifier que `initDb()` ([db.ts:28](../../services/auth/db.ts)) applique bien le nouveau DDL en idempotent (`CREATE TABLE IF NOT EXISTS`).
-  - [ ] T2.3 — Ajouter une colonne `r2_key TEXT` nullable à `contracts` pour persister le nouvel emplacement R2 (le `pdf_url` reste pour compat legacy).
+- [x] **T2 — Migration schéma `vault_documents`** (AC: 5)
+  - [x] T2.1 — Étendre `services/auth/db-schema.sql` avec la table `vault_documents` et ses index. Le DDL doit fonctionner sur PG et SQLite (types `TEXT`/`INTEGER` génériques, pas de `JSONB`).
+  - [x] T2.2 — Vérifier que `initDb()` ([db.ts:28](../../services/auth/db.ts)) applique bien le nouveau DDL en idempotent (`CREATE TABLE IF NOT EXISTS`).
+  - [x] T2.3 — Ajouter une colonne `r2_key TEXT` nullable à `contracts` pour persister le nouvel emplacement R2 (le `pdf_url` reste pour compat legacy).
 
-- [ ] **T3 — Endpoint `POST /api/nif/upload` (presigned PUT)** (AC: 3, 6)
-  - [ ] T3.1 — Refondre [server.ts:679-693](../../services/auth/server.ts) (`/api/nif/upload`) : validation Zod du body (`filename`, `mime_type`, `entity_id` optionnel), génération `r2_key = nif/{user_id}/{uuid}.bin.enc`, génération DEK + DEK chiffrée, INSERT `vault_documents` `status='pending'`, retour `{ uploadUrl, documentId, expiresIn }`.
-  - [ ] T3.2 — **Note importante** : R2 ne supporte pas le chiffrement applicatif côté client navigateur sans contrainte. Pour la story, l'**option retenue** est : le client envoie le binaire **non chiffré** vers R2 via PUT signé, puis un job side-effect (déclenché par `/complete`) télécharge l'objet, le chiffre côté serveur, ré-uploade le ciphertext et supprime l'original. Voir Dev Notes §"Choix architecturaux".
-  - [ ] T3.3 — Ajouter `POST /api/nif/upload/complete` : reçoit `documentId` + `sha256_client`, fait `HeadObjectCommand` R2 pour vérifier présence, lance le chiffrement serveur (T3.2), met à jour la ligne `status='ready'`, `size_bytes`, `sha256`. Journalise `audit_log` action `UPLOAD_DOCUMENT_COMPLETE`.
+- [x] **T3 — Endpoint `POST /api/nif/upload` (presigned PUT)** (AC: 3, 6)
+  - [x] T3.1 — Refondre [server.ts:679-693](../../services/auth/server.ts) (`/api/nif/upload`) : validation Zod du body (`filename`, `mime_type`, `entity_id` optionnel), génération `r2_key = nif/{user_id}/{uuid}.bin.enc`, génération DEK + DEK chiffrée, INSERT `vault_documents` `status='pending'`, retour `{ uploadUrl, documentId, expiresIn }`.
+  - [x] T3.2 — **Note importante** : R2 ne supporte pas le chiffrement applicatif côté client navigateur sans contrainte. Pour la story, l'**option retenue** est : le client envoie le binaire **non chiffré** vers R2 via PUT signé, puis un job side-effect (déclenché par `/complete`) télécharge l'objet, le chiffre côté serveur, ré-uploade le ciphertext et supprime l'original. Voir Dev Notes §"Choix architecturaux".
+  - [x] T3.3 — Ajouter `POST /api/nif/upload/complete` : reçoit `documentId` + `sha256_client`, fait `HeadObjectCommand` R2 pour vérifier présence, lance le chiffrement serveur (T3.2), met à jour la ligne `status='ready'`, `size_bytes`, `sha256`. Journalise `audit_log` action `UPLOAD_DOCUMENT_COMPLETE`.
 
-- [ ] **T4 — Génération contrat → R2** (AC: 1, 2)
-  - [ ] T4.1 — Refondre [server.ts:740-779](../../services/auth/server.ts) (`/api/contracts/generate`) : après génération du buffer PDF (compileur PDF déjà en place dans `/vault/:filename`), appeler `vault.putDocument({ buffer, mime_type: 'application/pdf', entity_type: 'contract', entity_id: contractId, user_id })`. Persister `r2_key` retournée dans `contracts.r2_key`. Conserver `pdf_url = /vault/{contractId}.pdf` (la route GET continue de servir le PDF, mais source = R2).
-  - [ ] T4.2 — Refondre [server.ts:846-938](../../services/auth/server.ts) (`/vault/:filename`) : lookup `contracts.r2_key`. Si présent → `vault.getDocument()` (téléchargement R2 + déchiffrement) → stream du buffer. Si null → fallback mode actuel (compile à la volée — pour rétro-compat avec les anciens contrats non migrés).
-  - [ ] T4.3 — Journaliser `audit_log` action `DOWNLOAD_VAULT_DOCUMENT` avec `entity_id = contractId`.
+- [x] **T4 — Génération contrat → R2** (AC: 1, 2)
+  - [x] T4.1 — Refondre [server.ts:740-779](../../services/auth/server.ts) (`/api/contracts/generate`) : après génération du buffer PDF (compileur PDF déjà en place dans `/vault/:filename`), appeler `vault.putDocument({ buffer, mime_type: 'application/pdf', entity_type: 'contract', entity_id: contractId, user_id })`. Persister `r2_key` retournée dans `contracts.r2_key`. Conserver `pdf_url = /vault/{contractId}.pdf` (la route GET continue de servir le PDF, mais source = R2).
+  - [x] T4.2 — Refondre [server.ts:846-938](../../services/auth/server.ts) (`/vault/:filename`) : lookup `contracts.r2_key`. Si présent → `vault.getDocument()` (téléchargement R2 + déchiffrement) → stream du buffer. Si null → fallback mode actuel (compile à la volée — pour rétro-compat avec les anciens contrats non migrés).
+  - [x] T4.3 — Journaliser `audit_log` action `DOWNLOAD_VAULT_DOCUMENT` avec `entity_id = contractId`.
 
-- [ ] **T5 — Endpoint download URL pour vault** (AC: 4, 6)
-  - [ ] T5.1 — Ajouter `GET /api/vault/documents/:id/download-url` : récupère la ligne `vault_documents`, applique RBAC (client = sienne seulement, avocat/admin = tout), refuse si `status != 'ready'`, retourne **URL presigned GET R2 valable 60 s SI le fichier n'est PAS chiffré applicatif** (cas legacy). Sinon, retourne `{ streamUrl: '/api/vault/documents/:id/stream' }`.
-  - [ ] T5.2 — Ajouter `GET /api/vault/documents/:id/stream` : RBAC, déchiffrement serveur, stream du PDF.
-  - [ ] T5.3 — Étendre [server.ts:940-973](../../services/auth/server.ts) (`/api/vault/documents`) pour fusionner `contracts` (existant) **et** `vault_documents` (nouvelles entrées NIF). Préserver la forme de réponse `{ id, name, type, status, createdAt, url }` pour ne pas casser le frontend.
+- [x] **T5 — Endpoint download URL pour vault** (AC: 4, 6)
+  - [x] T5.1 — Ajouter `GET /api/vault/documents/:id/download-url` : récupère la ligne `vault_documents`, applique RBAC (client = sienne seulement, avocat/admin = tout), refuse si `status != 'ready'`, retourne **URL presigned GET R2 valable 60 s SI le fichier n'est PAS chiffré applicatif** (cas legacy). Sinon, retourne `{ streamUrl: '/api/vault/documents/:id/stream' }`.
+  - [x] T5.2 — Ajouter `GET /api/vault/documents/:id/stream` : RBAC, déchiffrement serveur, stream du PDF.
+  - [x] T5.3 — Étendre [server.ts:940-973](../../services/auth/server.ts) (`/api/vault/documents`) pour fusionner `contracts` (existant) **et** `vault_documents` (nouvelles entrées NIF). Préserver la forme de réponse `{ id, name, type, status, createdAt, url }` pour ne pas casser le frontend.
 
-- [ ] **T6 — Configuration & docs** (AC: 7)
-  - [ ] T6.1 — Créer `services/auth/.env.example` (s'il n'existe pas) ou l'étendre avec les variables R2 et `VAULT_KEK_B64`, avec commentaires expliquant chaque variable et un exemple de génération de KEK : `openssl rand -base64 32`.
-  - [ ] T6.2 — Court paragraphe ajouté à [README.md](../../README.md) section "Démarrage" — expliquer le mode `VAULT_DRIVER=local` pour POC et le besoin des secrets R2 pour la prod.
-  - [ ] T6.3 — `Dockerfile` : aucune modif requise tant que `node_modules` est rebuild — vérifier que les nouvelles deps sont bien installées.
+- [x] **T6 — Configuration & docs** (AC: 7)
+  - [x] T6.1 — Créer `services/auth/.env.example` (s'il n'existe pas) ou l'étendre avec les variables R2 et `VAULT_KEK_B64`, avec commentaires expliquant chaque variable et un exemple de génération de KEK : `openssl rand -base64 32`.
+  - [x] T6.2 — Court paragraphe ajouté à [README.md](../../README.md) section "Démarrage" — expliquer le mode `VAULT_DRIVER=local` pour POC et le besoin des secrets R2 pour la prod.
+  - [x] T6.3 — `Dockerfile` : aucune modif requise tant que `node_modules` est rebuild — vérifier que les nouvelles deps sont bien installées.
 
-- [ ] **T7 — Tests** (AC: 8)
-  - [ ] T7.1 — `services/auth/storage/envelope.test.ts` : tests unitaires round-trip, corruption AuthTag, KEK invalide.
-  - [ ] T7.2 — Étendre `services/auth/server.test.ts` (ou nouveau `vault-r2.test.ts`) : mock du `S3Client` via `aws-sdk-client-mock`, scénarios des endpoints `POST /api/nif/upload`, `POST /api/nif/upload/complete`, `GET /vault/:filename`, `GET /api/vault/documents/:id/download-url`. RBAC cross-user.
-  - [ ] T7.3 — Test de migration : `initDb()` exécuté deux fois ne lève pas d'erreur, et `SELECT 1 FROM vault_documents LIMIT 0` réussit sur PG (mock) et SQLite (mémoire).
-  - [ ] T7.4 — Vérifier que `npm test` reste vert pour les épics 1-6 (régression).
+- [x] **T7 — Tests** (AC: 8)
+  - [x] T7.1 — `services/auth/storage/envelope.test.ts` : tests unitaires round-trip, corruption AuthTag, KEK invalide.
+  - [x] T7.2 — Étendre `services/auth/server.test.ts` (ou nouveau `vault-r2.test.ts`) : mock du `S3Client` via `aws-sdk-client-mock`, scénarios des endpoints `POST /api/nif/upload`, `POST /api/nif/upload/complete`, `GET /vault/:filename`, `GET /api/vault/documents/:id/download-url`. RBAC cross-user.
+  - [x] T7.3 — Test de migration : `initDb()` exécuté deux fois ne lève pas d'erreur, et `SELECT 1 FROM vault_documents LIMIT 0` réussit sur PG (mock) et SQLite (mémoire).
+  - [x] T7.4 — Vérifier que `npm test` reste vert pour les épics 1-6 (régression).
 
 - [ ] **T8 — Setup Cloudflare R2 (hors code, à documenter dans story)** (AC: 1, 7)
   - [ ] T8.1 — Documenter dans Dev Notes les étapes manuelles : créer compte Cloudflare → R2 → bucket `easylaw-vault-staging` et `easylaw-vault-prod` en **jurisdiction EU** (créer via endpoint `.eu.r2.cloudflarestorage.com`), créer API token scopé en lecture/écriture, copier secrets dans Railway/Hetzner env.
@@ -243,6 +243,39 @@ Observations :
 - **Presigned URLs R2** : TTL max 7 jours, PUT/GET/HEAD/DELETE supportés, POST multipart **non supporté**. Le `ContentType` doit être imposé côté serveur pour éviter MIME confusion. (Source : [R2 presigned URLs docs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)).
 - **AWS SDK v3 latest** : `@aws-sdk/client-s3@3.1063.0` (juin 2026, ~3 jours). Pas de breaking change connu vs 3.10xx.
 - **AES-256-GCM Node.js** : `crypto.createCipheriv('aes-256-gcm', kek, iv)` + `.setAAD()` optionnel (à ne pas utiliser ici pour simplicité — peut être ajouté en Phase 2 si on veut binder le ciphertext à un user_id).
+
+### Implementation Notes (2026-06-09, autonomous run)
+
+**Statut** : T1→T7 implémentées et testées. T8 (création bucket Cloudflare + injection secrets prod) reste à faire **manuellement par Ops** avant déploiement.
+
+**Choix d'implémentation notables vs spec initiale** :
+- **Driver `local`** : implémenté comme Map en mémoire dans `vault.ts` (au lieu du fallback disque local mentionné dans la spec). Permet le mode POC sans secrets R2 mais ne persiste pas entre redémarrages — c'est volontaire et documenté dans `.env.example`.
+- **Migration `r2_key`** : ajoutée via `runAdditiveMigrations()` dans `db.ts` (ALTER TABLE) pour gérer les bases existantes avec l'ancien schéma. Idempotent PG + SQLite.
+- **Endpoint `download-url`** : retourne `streamUrl` (pas une presigned GET URL R2) quand le fichier est chiffré applicatif — la presigned URL serait inutile puisque le client ne peut pas déchiffrer sans la KEK. Presigned GET réservée aux cas legacy/POC sans chiffrement (cf. AC-4 du brief).
+- **Test "complete flow" positive path** : non testable proprement via supertest (le local driver n'a pas de point d'entrée HTTP pour seed plaintext). Couvert à la place par un test direct `vault.putDocument` round-trip, plus un test négatif `/complete` (500 quand pas d'objet upload).
+
+**Fichiers touchés (récap)** :
+- Nouveaux : `services/auth/storage/{r2-client,envelope,vault,envelope.test,vault-integration.test}.ts`
+- Modifiés : `services/auth/{server,db,db-schema.sql,server.test,extra.test,package.json,.env.example}`, `README.md`
+
+**Couverture tests** :
+- 13 tests envelope (round-trip, tampering, KEK validation)
+- 16 tests intégration (HTTP endpoints, RBAC, fusion list, migration idempotency)
+- 58 tests baseline préservés (régression zéro sur épics 1-5)
+- **Total : 87/87 verts**
+
+**Commits sur la branche `feat/autonomous-sprint-2026-06-09`** :
+- `c1a57bf` feat(6-3): T1+T2 storage modules + vault_documents schema
+- `bf0e25b` feat(6-3): T3 /api/nif/upload + /upload/complete with vault layer
+- `84acbf6` feat(6-3): T4 contract generation pushes PDF to vault
+- `4d46988` feat(6-3): T5 vault list fusion + stream + download-url
+- `c4e5778` docs(6-3): T6 vault config & docs (.env.example + README + boot guard)
+- `f77adec` test(6-3): T7 integration tests + additive column migration
+
+**Action items pour passer en `done`** :
+1. Code review adversarial (sécurité crypto, RBAC, gestion erreur, fuites mémoire/logs).
+2. Setup R2 prod (T8) : créer bucket EU, générer/injecter KEK, valider boot avec `assertVaultConfig()`.
+3. Story complémentaire à créer : migration des contrats existants (rétro-chiffrement des PDF déjà servis depuis disque local).
 
 ### References
 
