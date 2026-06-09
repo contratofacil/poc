@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useLogin } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield, Globe } from "lucide-react";
+import { Shield, Globe, Loader2 } from "lucide-react";
 import { useEasyLawAuth } from "@/lib/privy";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { authenticated } = useEasyLawAuth();
@@ -65,5 +65,18 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#FAFAF8]">
+        <Loader2 className="w-10 h-10 text-[#C9A84C] animate-spin mb-4" />
+        <p className="text-gray-500 text-sm">Chargement...</p>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
