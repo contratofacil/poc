@@ -40,10 +40,10 @@ const registerSchema = z.object({
     }),
   name: z.string().optional(),
   cguAccepted: z.literal(true, {
-    errorMap: () => ({ message: "You must accept the Terms of Use (CGU)" }),
+    message: "You must accept the Terms of Use (CGU)",
   }),
   privacyPolicyAccepted: z.literal(true, {
-    errorMap: () => ({ message: "You must accept the Privacy Policy" }),
+    message: "You must accept the Privacy Policy",
   }),
   lang: z.string().optional().default('PT')
 });
@@ -58,7 +58,7 @@ app.post('/api/auth/register', async (req: Request, res: Response): Promise<void
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -212,7 +212,7 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -311,7 +311,7 @@ app.put('/api/auth/profile', authMiddleware, async (req: Request, res: Response)
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -408,7 +408,7 @@ app.post('/api/auth/invite', authMiddleware, checkRole(['admin_cabinet']), async
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -471,7 +471,7 @@ app.post('/api/nif/apply', async (req: Request, res: Response): Promise<void> =>
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -715,7 +715,7 @@ async function logAudit(
 const generateContractSchema = z.object({
   type: z.string().min(1, { message: "Contract type is required" }),
   template_id: z.string().min(1, { message: "Template ID is required" }),
-  data: z.record(z.any())
+  data: z.record(z.string(), z.any())
 });
 
 // GET /api/contracts/templates
@@ -743,7 +743,7 @@ app.post('/api/contracts/generate', authMiddleware, async (req: Request, res: Re
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -1273,7 +1273,7 @@ app.post('/api/compliance', async (req: Request, res: Response): Promise<void> =
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        errors: parsed.error.errors.map(err => ({
+        errors: parsed.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))

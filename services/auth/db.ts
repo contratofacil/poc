@@ -32,7 +32,7 @@ export const initDb = async (): Promise<void> => {
     await pool.query(schema);
   } else {
     await new Promise<void>((resolve, reject) => {
-      sqliteDb!.exec(schema, (err) => err ? reject(err) : resolve());
+      sqliteDb!.exec(schema, (err: any) => err ? reject(err) : resolve());
     });
   }
 };
@@ -43,7 +43,7 @@ export const run = async (sql: string, params: any[] = []): Promise<void> => {
     await pool.query(text, values);
   } else {
     await new Promise<void>((resolve, reject) => {
-      sqliteDb!.run(sql, params, (err) => err ? reject(err) : resolve());
+      sqliteDb!.run(sql, params, (err: any) => err ? reject(err) : resolve());
     });
   }
 };
@@ -55,7 +55,7 @@ export const get = async <T>(sql: string, params: any[] = []): Promise<T | undef
     return result.rows[0] as T | undefined;
   } else {
     return new Promise<T | undefined>((resolve, reject) => {
-      sqliteDb!.get(sql, params, (err, row) => err ? reject(err) : resolve(row as T));
+      sqliteDb!.get(sql, params, (err: any, row: any) => err ? reject(err) : resolve(row as T));
     });
   }
 };
@@ -67,7 +67,7 @@ export const all = async <T>(sql: string, params: any[] = []): Promise<T[]> => {
     return result.rows as T[];
   } else {
     return new Promise<T[]>((resolve, reject) => {
-      sqliteDb!.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows as T[]));
+      sqliteDb!.all(sql, params, (err: any, rows: any) => err ? reject(err) : resolve(rows as T[]));
     });
   }
 };
@@ -77,7 +77,7 @@ export const closeDb = async (): Promise<void> => {
     await pool.end();
   } else {
     await new Promise<void>((resolve, reject) => {
-      sqliteDb!.close((err) => err ? reject(err) : resolve());
+      sqliteDb!.close((err: any) => err ? reject(err) : resolve());
     });
   }
 };
