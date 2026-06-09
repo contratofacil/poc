@@ -78,7 +78,7 @@ development_status:
   epic-6: in-progress
   6-1-stockage-documents: done
   6-2-audit-trail: done
-  6-3-stockage-r2-chiffrement-envelope: ready-for-dev
+  6-3-stockage-r2-chiffrement-envelope: in-progress
   epic-6-retrospective: done
 
   # ── PRIVY.IO INTEGRATION (transversal — tous modules) ────────────────────
