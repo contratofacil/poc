@@ -33,51 +33,52 @@ Goals split out of multi-goal intents and queued for future spec creation. Creat
 
 Original intent contained 4 priorities. Scope narrowed to P1 only; P2/P3/P4 deferred to separate specs after P1 ships.
 
-### P2 — Landing publique `/` *(deferred)*
+### P2 — Landing publique `/` ✓ *SHIPPED 2026-06-09 — `feat/p2-landing-page` merged to main*
 
 **Reference :** [01-landing.html](../planning-artifacts/ux-designs/ux-easylaw-2026-06-09/.working/mocks/01-landing.html)
 
-**Scope :**
-- Page `app/page.tsx` (route `/`) — hero, 4 features cards, "Comment ça marche" 3-steps, partnership section O&C, footer.
-- Composant `<TrustBar />` à factoriser dans `apps/frontend/src/components/ui/`.
-- Hedger les claims marketing : « 48h » → « habituellement 48h » ; « 500+ dossiers » → flag verifiability (OQ-008).
-- i18n FR + PT via traductions inline (migration `next-intl` = OQ-001, différée).
-
-**Acceptance criteria :**
-- WCAG 2.2 AA respecté
-- Pas d'emoji dans la UI (icons `lucide-react`)
-- Citations `<span lang="pt">` autour des références PT
-- Mobile-first responsive (375px → 1280px+)
-
-**Estimated complexity :** Medium (~3-4h dev incl. tests E2E Playwright sur les CTAs)
+**Delivered :** `app/page.tsx` + `TrustBar`, `SiteHeader`, `SiteFooter`, `HeroNifCard`, i18n FR+PT inline, 7 sections. WCAG AA. `spec-p2-landing-page.md` status: done.
 
 ---
 
-### P3 — Compliance Dashboard `/compliance` *(deferred)*
+### P3 — Compliance Dashboard `/compliance` ✓ *SHIPPED 2026-06-09 — `feat/p3-compliance-dashboard` merged to main*
 
 **Reference :** [03-compliance-dashboard.html](../planning-artifacts/ux-designs/ux-easylaw-2026-06-09/.working/mocks/03-compliance-dashboard.html)
 
-**Scope :**
-- Page `app/compliance/page.tsx` (route authentifiée).
-- Sidebar shell réutilisable (composant `<AppShell />`).
-- Tri-color status bar.
-- "Action urgente" card.
-- List view des obligations avec filtres (Tous / À venir / À jour).
-- Composant `<ComplianceBadge status={"green"|"amber"|"red"} />` à factoriser.
+**Delivered :** `AppShell`, `AppSidebar`, `AppTopBar`, `ComplianceStatusBar`, `ObligationCard`, `ObligationListItem` + `compliance/page.tsx`. Mock data typée 11 obligations. WCAG AA. `spec-p3-compliance-dashboard.md` status: done.
 
-**Acceptance criteria :**
-- Status tri-couleur jamais reposant seul sur couleur (icon + label obligatoires)
-- Garde de route (auth Privy) sur la route
-- États : empty (« Aucune obligation surveillée »), loading skeleton, error
-- WCAG 2.2 AA
-
-**Estimated complexity :** Medium-large (~4-6h dev — sidebar shell + dashboard + data fetching wired to backend)
-
-**Dépend de :** auth Privy en état stable (cf. branche actuelle `fix/auth-and-api-url`).
+**Régression temporaire :** add/delete/toggle obligations + email alerts log retirés — déférés à P3.5 ci-dessous.
 
 ---
 
-### P4 — Cookie Consent CMP *(deferred — mais bloquant pour mise en ligne publique)*
+### P3.5 — Re-wiring backend `/api/compliance` to P3 components *(deferred)*
+
+**Context :** P3 remplace la page `/compliance` par un visual-first dashboard avec mock data. L'API `/api/compliance` existe toujours côté backend mais n'est plus connectée au frontend.
+
+**Scope :**
+- Remplacer `MOCK_OBLIGATIONS` par un fetch `GET /api/compliance` dans `apps/frontend/src/lib/compliance/`.
+- Réintégrer les fonctionnalités CRUD retirées en P3 : formulaire "Ajouter une obligation" (CTA `+` dans le Hero), toggle "Marquer comme préparé" sur `ObligationCard`, suppression avec confirmation.
+- Réintégrer le log "Email alerts" (affiché en section distincte sous la liste, comme dans la page originale).
+- Connecter `ObligationCard` CTAs à des actions réelles (`onPrepare` → wizard P3.5, `onMarkPrepared` → PATCH, `onViewDetail` → modal ou sous-route).
+- AML/KYC step (D-013) : sélection eIDV provider + intégration wizard.
+
+**Files à modifier :**
+- `apps/frontend/src/lib/compliance/mockData.tsx` → remplacer par hook `useCompliance()` avec SWR/fetch
+- `apps/frontend/src/app/compliance/page.tsx` → connecter aux callbacks réels
+- `apps/frontend/src/components/compliance/ObligationCard.tsx` → activer CTAs
+- `apps/frontend/src/components/compliance/ObligationListItem.tsx` → activer click handler
+
+**Dépend de :** auth Privy stable + `/api/compliance` endpoint opérationnel.
+
+---
+
+### P4 — Cookie Consent CMP ✓ *SHIPPED 2026-06-09 — merged to main with P1+P2*
+
+**Delivered :** `ConsentBanner`, `ConsentFooterLink`, `consent/context.tsx`, `consent/cookie.ts`, `consent/i18n.ts`, `/legal/cookies/page.tsx`. Cookie `easylaw_consent_v1`, 4 catégories, CNIL-compliant (boutons Accept/Reject équivalents). `spec-p4-cookie-consent.md` status: done.
+
+---
+
+### P4-ORIG — Cookie Consent CMP *(original deferred note — superseded above)*
 
 **Reference :** EXPERIENCE.md §Cookie Consent & ePrivacy (D-012)
 
