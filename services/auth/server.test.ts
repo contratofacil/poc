@@ -21,6 +21,7 @@ beforeEach(async () => {
   await run('DELETE FROM contracts');
   await run('DELETE FROM audit_log');
   await run('DELETE FROM system_settings');
+  await run('DELETE FROM vault_documents');
 });
 
 describe('POST /api/nif/apply & POST /api/nif/upload', () => {
@@ -34,14 +35,38 @@ describe('POST /api/nif/apply & POST /api/nif/upload', () => {
     user_id: 'some-user-id'
   };
 
-  test('should successfully upload a mock file and return a path', async () => {
+  test('should prepare a vault upload and return a presigned URL + documentId', async () => {
+    // Story 6-3: endpoint now authenticated and creates a vault_documents row.
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({
+        email: 'upload-test@example.com',
+        password: 'Password123',
+        cguAccepted: true,
+        privacyPolicyAccepted: true,
+        lang: 'PT',
+      });
+    const token = reg.body.token;
+
     const res = await request(app)
       .post('/api/nif/upload')
-      .send({ filename: 'passport.pdf' });
+      .set('Authorization', `Bearer ${token}`)
+      .send({ filename: 'passport.pdf', mime_type: 'application/pdf' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.filepath).toContain('passport.pdf');
+    expect(res.body.documentId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.body.r2_key).toContain('nif/');
+    expect(res.body.r2_key).toContain('.bin.enc');
+    expect(typeof res.body.uploadUrl).toBe('string');
+    expect(res.body.expiresIn).toBeGreaterThan(0);
+    // Backwards-compat: filepath still present and contains r2_key.
+    expect(res.body.filepath).toBe(res.body.r2_key);
+  });
+
+  test('should reject /api/nif/upload without auth', async () => {
+    const res = await request(app).post('/api/nif/upload').send({ filename: 'p.pdf' });
+    expect(res.status).toBe(401);
   });
 
   test('should successfully submit a NIF application', async () => {

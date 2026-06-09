@@ -39,6 +39,7 @@ beforeEach(async () => {
   await run('DELETE FROM payments');
   await run('DELETE FROM audit_log');
   await run('DELETE FROM system_settings');
+  await run('DELETE FROM vault_documents');
 });
 
 // ---------------------------------------------------------------------------
@@ -195,11 +196,22 @@ describe('Contracts Edge Cases', () => {
 // NIF upload edge cases
 // ---------------------------------------------------------------------------
 describe('POST /api/nif/upload - Edge Cases', () => {
-  test('should generate a unique path even without filename', async () => {
-    const res = await request(app).post('/api/nif/upload').send({});
+  test('should still issue a presigned URL when filename is omitted', async () => {
+    const { token } = await registerUser('edge-upload@example.com');
+    const res = await request(app)
+      .post('/api/nif/upload')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.filepath).toContain('/uploads/');
+    // r2_key now includes the userId + a uuid; the legacy /uploads/ prefix is gone.
+    expect(res.body.r2_key).toMatch(/^nif\//);
+    expect(res.body.documentId).toBeDefined();
+  });
+
+  test('should reject /api/nif/upload without Authorization', async () => {
+    const res = await request(app).post('/api/nif/upload').send({});
+    expect(res.status).toBe(401);
   });
 });
 

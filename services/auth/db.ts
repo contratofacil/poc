@@ -25,6 +25,40 @@ function toPostgresParams(sql: string, params: any[]): { text: string; values: a
   return { text, values: params };
 }
 
+/**
+ * Story 6-3: lightweight migrations for columns that CREATE TABLE IF NOT EXISTS
+ * can't add to pre-existing tables. Adding new tables via the schema file is
+ * fine; adding new columns to existing tables needs ALTER TABLE.
+ *
+ * The list below stays small: each entry tries `ALTER TABLE ... ADD COLUMN`
+ * and swallows the "duplicate column" / "already exists" error so the call is
+ * idempotent across fresh and stale databases.
+ */
+const ADD_COLUMN_MIGRATIONS: Array<{ table: string; column: string; sql: string }> = [
+  { table: 'contracts', column: 'r2_key', sql: 'ALTER TABLE contracts ADD COLUMN r2_key TEXT' },
+];
+
+async function runAdditiveMigrations(): Promise<void> {
+  for (const m of ADD_COLUMN_MIGRATIONS) {
+    try {
+      if (USE_PG && pool) {
+        await pool.query(m.sql);
+      } else {
+        await new Promise<void>((resolve, reject) => {
+          sqliteDb!.exec(m.sql, (err: any) => err ? reject(err) : resolve());
+        });
+      }
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      // SQLite: "duplicate column name". PG: "column ... already exists". Both fine.
+      if (/duplicate column|already exists/i.test(msg)) continue;
+      // Table doesn't exist yet (e.g. very first init before schema applies) — also fine.
+      if (/no such table/i.test(msg)) continue;
+      throw err;
+    }
+  }
+}
+
 export const initDb = async (): Promise<void> => {
   const schemaPath = path.resolve(__dirname, 'db-schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf8');
@@ -35,6 +69,7 @@ export const initDb = async (): Promise<void> => {
       sqliteDb!.exec(schema, (err: any) => err ? reject(err) : resolve());
     });
   }
+  await runAdditiveMigrations();
 };
 
 export const run = async (sql: string, params: any[] = []): Promise<void> => {

@@ -64,8 +64,29 @@ CREATE TABLE IF NOT EXISTS contracts (
     template_id TEXT,
     data_json TEXT,
     pdf_url TEXT,
+    r2_key TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS vault_documents (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    r2_key TEXT NOT NULL UNIQUE,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER,
+    sha256 TEXT,
+    encrypted_dek TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_user_status
+    ON vault_documents (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_vault_entity
+    ON vault_documents (entity_type, entity_id);
 
 CREATE TABLE IF NOT EXISTS clause_versions (
     id TEXT PRIMARY KEY,

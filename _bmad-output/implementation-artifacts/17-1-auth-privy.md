@@ -95,3 +95,46 @@ Approche : hook-first (exposer getAccessToken) puis page par page.
 ## Change Log
 
 - 2026-06-09 : Story implémentée — migration auth Privy sur 3 pages + nouvelle page /register (all tasks done)
+- 2026-06-09 : Code-review adversarial passée — verdict **FAIL**, voir Code Review Findings ci-dessous. Statut reste `review`.
+
+---
+
+## Code Review Findings — 2026-06-09
+
+**Verdict global : FAIL** (story reste en `review`, rework mineur nécessaire). Aucune trouvaille critique mais 3 majeures bloquent le `done`. Temps de fix estimé : ~30 min.
+
+### AC Verdict
+
+| AC | Verdict | Justification |
+|---|---|---|
+| AC-1 | ⚠ PARTIAL | `/register` déclenche bien Privy modal + redirige post-login, mais **n'est pas bilingue FR/PT** comme T2 l'exigeait. |
+| AC-2 | ✅ PASS | Les 3 pages importent `useEasyLawAuth` ; aucune n'importe `useAuth` (grep vérifié). |
+| AC-3 | ✅ PASS | Les 3 pages exportent un default qui wrappe `<AuthGuard>` (profile:319-324, contracts:146-152, vault:294-300). |
+| AC-4 | ✅ PASS | Tous les appels API font `await getAccessToken()` et passent `Authorization: Bearer ${token}`. |
+| AC-5 | ✅ PASS | Grep confirme zéro référence à `useAuth()` ou `@/contexts/AuthContext` dans les 5 fichiers modifiés. |
+
+### MAJEURS (bloquent le done, à fixer)
+
+1. **`apps/frontend/src/app/register/page.tsx:1-71` — Page non bilingue.**
+   T2 exige FR/PT mais tout est en français (sauf un badge statique L66). Pas de toggle `lang`, pas de dict `translations`. **Fix** : reprendre le pattern i18n déjà utilisé dans `vault/page.tsx:31, 39-74` (state `lang` + `translations[lang]`).
+
+2. **`apps/frontend/src/lib/api.ts:6-12` — Fuite localStorage token.**
+   `apiFetch` lit toujours `localStorage.getItem("token")` du système legacy. Dans les 3 pages migrées, l'ordre de spread fait que le header Privy gagne, MAIS tout futur appel `apiFetch(path)` sans `headers` enverra silencieusement le JWT legacy. **Fix** : supprimer le fallback localStorage de `apiFetch`, OU ajouter un guard qui ignore le token localStorage.
+
+3. **`apps/frontend/src/app/register/page.tsx:11, 19-23` — Pas de check `ready`.**
+   `useEasyLawAuth()` utilisé sans vérifier `ready` (le hook lui-même documente "Always check `ready` before using `authenticated`"). Pendant l'init Privy, un user déjà loggé voit brièvement le formulaire avant la redirection. **Fix** : `if (!ready) return <Spinner />;` avant le rendu principal.
+
+### MINEURS (à tracker en follow-up, non bloquant)
+
+4. `profile/page.tsx:3-4` — Imports inutilisés : `useCallback`, `FileText`, `Loader2`, `Plus`, `X`.
+5. Pattern `getAccessToken + apiFetch` dupliqué sur 3 pages → extraire un hook `useAuthedFetch()` partagé.
+6. `profile/page.tsx:140, 305` — `logout()` après delete ne redirige pas (user reste sur `/profile` vide).
+7. `contexts/AuthContext.tsx` — Dead code (zero call sites, jamais render). À supprimer.
+8. **Autres pages encore sur localStorage legacy** : `/login`, `/compliance`, `/assistant`, `/admin`, `/contracts/wizard`, `/nif/status`. Hors scope 17-1 mais migration auth partielle dans l'app → créer follow-up stories.
+9. `AuthGuard.tsx:39-49` — Fallback FR-only ("Accès réservé…"), pas de PT.
+
+### Action items
+- **Avant de marquer 17-1 done** : fixer les 3 majeurs ci-dessus dans une mini-itération (30 min).
+- **Créer follow-up story Epic 17** : migration des 6 pages restantes vers Privy.
+- **Tracker en dette technique** : supprimer `AuthContext.tsx`, créer `useAuthedFetch()`, traduire AuthGuard fallback.
+

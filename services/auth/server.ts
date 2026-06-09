@@ -7,6 +7,15 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { initDb, run, get, all, closeDb } from './db';
 import { sendVerificationEmail } from './email';
+import { assertVaultConfig } from './storage/r2-client';
+import {
+  prepareUpload,
+  completeUpload,
+  putDocument,
+  getDocumentBuffer,
+  getDocumentByR2Key,
+  VaultDocumentRow,
+} from './storage/vault';
 
 // Load environment variables
 dotenv.config();
@@ -675,19 +684,113 @@ app.get('/api/nif/status', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// Mock File Upload Endpoint
-app.post('/api/nif/upload', (req: Request, res: Response): void => {
+// ---------------------------------------------------------------------------
+// Story 6-3 — Vault uploads via R2 + envelope encryption
+// ---------------------------------------------------------------------------
+
+const nifUploadSchema = z.object({
+  filename: z.string().min(1).max(255).optional(),
+  mime_type: z.string().min(1).max(255).optional().default('application/pdf'),
+  entity_id: z.string().nullable().optional(),
+});
+
+// POST /api/nif/upload — create a vault_documents row and return a presigned PUT URL
+app.post('/api/nif/upload', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const filename = req.body.filename || 'document.pdf';
-    const mockPath = `/uploads/${crypto.randomUUID()}-${filename}`;
+    const parsed = nifUploadSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        errors: parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }))
+      });
+      return;
+    }
+    const { filename, mime_type, entity_id } = parsed.data;
+    const userId = (req as any).user.id;
+
+    const result = await prepareUpload({
+      user_id: userId,
+      entity_type: 'nif_piece',
+      entity_id: entity_id ?? null,
+      filename: filename || 'document.pdf',
+      mime_type,
+    });
+
+    await logAudit(userId, 'PREPARE_VAULT_UPLOAD', 'vault_document', result.documentId, req);
+
+    // Backwards-compat: `filepath` mirrors `r2_key` so legacy callers don't break entirely.
     res.status(200).json({
       success: true,
-      filepath: mockPath
+      filepath: result.r2_key,
+      documentId: result.documentId,
+      uploadUrl: result.uploadUrl,
+      r2_key: result.r2_key,
+      expiresIn: result.expiresIn,
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error preparing vault upload:', error?.message || error);
     res.status(500).json({
       success: false,
-      message: 'Failed to upload document'
+      message: 'Failed to prepare document upload'
+    });
+  }
+});
+
+const nifUploadCompleteSchema = z.object({
+  documentId: z.string().uuid({ message: 'documentId must be a UUID' }),
+  sha256: z.string().regex(/^[0-9a-fA-F]{64}$/, { message: 'sha256 must be a 64-char hex string' }),
+});
+
+// POST /api/nif/upload/complete — verify presence, encrypt server-side, mark ready
+app.post('/api/nif/upload/complete', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = nifUploadCompleteSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        errors: parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }))
+      });
+      return;
+    }
+    const { documentId, sha256 } = parsed.data;
+    const userId = (req as any).user.id;
+
+    // RBAC: enforce ownership before doing R2 work.
+    const row = await get<VaultDocumentRow>(
+      'SELECT * FROM vault_documents WHERE id = ?',
+      [documentId]
+    );
+    if (!row) {
+      res.status(404).json({ success: false, message: 'Document not found' });
+      return;
+    }
+    if (row.user_id !== userId) {
+      await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    const updated = await completeUpload(documentId, sha256);
+    await logAudit(userId, 'UPLOAD_DOCUMENT_COMPLETE', 'vault_document', documentId, req);
+
+    res.status(200).json({
+      success: true,
+      documentId: updated.id,
+      status: updated.status,
+      size_bytes: updated.size_bytes,
+      sha256: updated.sha256,
+    });
+  } catch (error: any) {
+    const msg = error?.message || 'Internal error';
+    // Hash mismatch is a 400 (client-controlled input)
+    if (/SHA-256 mismatch/.test(msg)) {
+      res.status(400).json({ success: false, message: msg });
+      return;
+    }
+    console.error('Error completing vault upload:', msg);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete document upload'
     });
   }
 });
@@ -709,6 +812,62 @@ async function logAudit(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [logId, userId, action, entityType, entityId, ipAddr, userAgent, timestamp]
   );
+}
+
+// ---------------------------------------------------------------------------
+// PDF compilation helper — used by /api/contracts/generate (story 6-3) and
+// the legacy fallback path in /vault/:filename for contracts predating R2.
+// ---------------------------------------------------------------------------
+interface ClauseVersion {
+  clause_key: string;
+  content: string;
+  loi_reference: string;
+}
+
+async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
+  const clauses = await all<ClauseVersion>(
+    'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
+    [contract.type]
+  );
+  const data = JSON.parse(contract.data_json);
+  let compiledContent = `CONTRAT DE ${String(contract.type).toUpperCase()}\n\n`;
+  if (clauses.length > 0) {
+    clauses.forEach((clause) => {
+      let text = clause.content;
+      const matches = text.match(/\{[a-zA-Z0-9_]+\}/g);
+      if (matches) {
+        matches.forEach((m) => {
+          const key = m.slice(1, -1);
+          const replacement = data[key] !== undefined ? data[key] : `[${key}]`;
+          text = text.replace(m, replacement);
+        });
+      }
+      compiledContent += `${text} (Ref: ${clause.loi_reference})\n\n`;
+    });
+  } else {
+    compiledContent += `Donnees du contrat :\n` + JSON.stringify(data, null, 2);
+  }
+
+  const textLines = compiledContent.split('\n');
+  let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
+  textLines.forEach(line => {
+    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    streamContent += `(${escaped}) Tj T*\n`;
+  });
+  streamContent += `ET`;
+  const streamLength = Buffer.byteLength(streamContent, 'latin1');
+  const pdfParts = [
+    `%PDF-1.4`,
+    `1 0 obj`, `<< /Type /Catalog /Pages 2 0 R >>`, `endobj`,
+    `2 0 obj`, `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`, `endobj`,
+    `3 0 obj`, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`, `endobj`,
+    `4 0 obj`, `<< /Length ${streamLength} >>`, `stream`, streamContent, `endstream`, `endobj`,
+    `5 0 obj`, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`, `endobj`,
+    `xref`, `0 6`, `0000000000 65535 f `,
+    `trailer`, `<< /Size 6 /Root 1 0 R >>`,
+    `%%EOF`
+  ];
+  return Buffer.from(pdfParts.join('\n'), 'latin1');
 }
 
 // Zod validation for contract generation
@@ -757,11 +916,34 @@ app.post('/api/contracts/generate', authMiddleware, async (req: Request, res: Re
     const pdfUrl = `/vault/${contractId}.pdf`;
     const createdAt = new Date().toISOString();
 
+    // Insert contracts row first so compileContractPdfBuffer sees the data.
     await run(
       `INSERT INTO contracts (id, user_id, type, status, template_id, data_json, pdf_url, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [contractId, userId, type, 'generated', template_id, JSON.stringify(data), pdfUrl, createdAt]
     );
+
+    // Story 6-3: compile PDF buffer and push to vault (R2 + envelope encryption
+    // when KEK is set, in-memory fallback otherwise). Failures are non-fatal
+    // for the POC path — the legacy /vault/:filename handler will recompile
+    // on-the-fly if r2_key is missing.
+    let r2Key: string | null = null;
+    try {
+      const contractRow = { type, data_json: JSON.stringify(data) };
+      const pdfBuffer = await compileContractPdfBuffer(contractRow);
+      const stored = await putDocument({
+        buffer: pdfBuffer,
+        mime_type: 'application/pdf',
+        entity_type: 'contract',
+        entity_id: contractId,
+        user_id: userId,
+      });
+      r2Key = stored.r2_key;
+      await run(`UPDATE contracts SET r2_key = ? WHERE id = ?`, [r2Key, contractId]);
+    } catch (storageErr: any) {
+      // Don't 500 the user — log and fall back to on-the-fly serve.
+      console.warn('Vault upload skipped for contract', contractId, ':', storageErr?.message || storageErr);
+    }
 
     // Audit log
     await logAudit(userId, 'CREATE_CONTRACT', 'contract', contractId, req);
@@ -770,7 +952,8 @@ app.post('/api/contracts/generate', authMiddleware, async (req: Request, res: Re
       success: true,
       message: 'Contract generated successfully.',
       contractId,
-      pdfUrl
+      pdfUrl,
+      r2_key: r2Key,
     });
   } catch (error) {
     console.error('Error generating contract:', error);
@@ -843,6 +1026,16 @@ app.get('/api/contracts/:id/preview', authMiddleware, async (req: Request, res: 
   }
 });
 
+// GET /vault/:filename — serve a contract PDF.
+//
+// Story 6-3 behaviour:
+//  1. Lookup contracts row by id (filename = `{contractId}.pdf`).
+//  2. If `contracts.r2_key` is set → fetch the encrypted blob from the vault
+//     (R2 or local POC store), decrypt it via envelope encryption, stream.
+//  3. Fallback (legacy contracts pre-R2) → compile the PDF on the fly from
+//     clause_versions and stream that.
+//
+// Audit: every successful download is logged (DOWNLOAD_VAULT_DOCUMENT).
 app.get('/vault/:filename', async (req: Request, res: Response): Promise<void> => {
   try {
     const filename = req.params.filename as string;
@@ -854,80 +1047,32 @@ app.get('/vault/:filename', async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Fetch clauses of this type to compile preview/content
-    interface ClauseVersion {
-      clause_key: string;
-      content: string;
-      loi_reference: string;
-    }
-    const clauses = await all<ClauseVersion>(
-      'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
-      [contract.type]
-    );
-
-    const data = JSON.parse(contract.data_json);
-    let compiledContent = `CONTRAT DE ${contract.type.toUpperCase()}\n\n`;
-
-    if (clauses.length > 0) {
-      clauses.forEach((clause) => {
-        let text = clause.content;
-        const matches = text.match(/\{[a-zA-Z0-9_]+\}/g);
-        if (matches) {
-          matches.forEach((m) => {
-            const key = m.slice(1, -1);
-            const replacement = data[key] !== undefined ? data[key] : `[${key}]`;
-            text = text.replace(m, replacement);
-          });
-        }
-        compiledContent += `${text} (Ref: ${clause.loi_reference})\n\n`;
-      });
+    let pdfBuffer: Buffer;
+    if (contract.r2_key) {
+      try {
+        // vault_documents row for the same r2_key has the encrypted_dek.
+        const row = await get<{ encrypted_dek: string }>(
+          'SELECT encrypted_dek FROM vault_documents WHERE r2_key = ?',
+          [contract.r2_key]
+        );
+        pdfBuffer = await getDocumentByR2Key(contract.r2_key, row?.encrypted_dek || '');
+      } catch (vaultErr: any) {
+        // Vault read failed — fall back to on-the-fly compilation so the user
+        // can still retrieve their contract.
+        console.warn('Vault read failed for', contract.r2_key, ':', vaultErr?.message || vaultErr);
+        pdfBuffer = await compileContractPdfBuffer(contract);
+      }
     } else {
-      compiledContent += `Donnees du contrat :\n` + JSON.stringify(data, null, 2);
+      pdfBuffer = await compileContractPdfBuffer(contract);
     }
 
-    // Format the text into standard PDF-compatible syntax
-    const textLines = compiledContent.split('\n');
-    let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
-    textLines.forEach(line => {
-      // Escape parentheses in PDF text elements
-      const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-      streamContent += `(${escaped}) Tj T*\n`;
-    });
-    streamContent += `ET`;
+    // Best-effort audit log. We don't know which user is downloading
+    // (this endpoint is unauthenticated for now to keep the legacy <a href>
+    // flow working) so we record under the contract owner.
+    try {
+      await logAudit(contract.user_id || null, 'DOWNLOAD_VAULT_DOCUMENT', 'contract', contractId, req);
+    } catch { /* never fail the download because of audit issues */ }
 
-    const streamLength = Buffer.byteLength(streamContent, 'latin1');
-
-    const pdfParts = [
-      `%PDF-1.4`,
-      `1 0 obj`,
-      `<< /Type /Catalog /Pages 2 0 R >>`,
-      `endobj`,
-      `2 0 obj`,
-      `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`,
-      `endobj`,
-      `3 0 obj`,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`,
-      `endobj`,
-      `4 0 obj`,
-      `<< /Length ${streamLength} >>`,
-      `stream`,
-      streamContent,
-      `endstream`,
-      `endobj`,
-      `5 0 obj`,
-      `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`,
-      `endobj`,
-      `xref`,
-      `0 6`,
-      `0000000000 65535 f `,
-      `trailer`,
-      `<< /Size 6 /Root 1 0 R >>`,
-      `%%EOF`
-    ];
-
-    const pdfBuffer = Buffer.from(pdfParts.join('\n'), 'latin1');
-
-    // Serve as PDF file attachment
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(pdfBuffer);
@@ -938,26 +1083,61 @@ app.get('/vault/:filename', async (req: Request, res: Response): Promise<void> =
 });
 
 // GET /api/vault/documents
+//
+// Story 6-3: returns the union of `contracts` (legacy) and `vault_documents`
+// (new R2-backed uploads). Response shape is preserved for the frontend
+// (id, name, type, status, createdAt, url) — `url` is the existing
+// `/vault/{contractId}.pdf` for contracts, and `/api/vault/documents/:id/stream`
+// for new entries.
 app.get('/api/vault/documents', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.id;
     const userRole = (req as any).user.role;
+    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
 
     let contracts: any[] = [];
-    if (userRole === 'admin_cabinet' || userRole === 'avocat') {
+    let vaultRows: VaultDocumentRow[] = [];
+    if (isPrivileged) {
       contracts = await all<any>('SELECT * FROM contracts ORDER BY created_at DESC');
+      vaultRows = await all<VaultDocumentRow>(
+        `SELECT * FROM vault_documents WHERE status != 'deleted' ORDER BY created_at DESC`
+      );
     } else {
       contracts = await all<any>('SELECT * FROM contracts WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+      vaultRows = await all<VaultDocumentRow>(
+        `SELECT * FROM vault_documents WHERE user_id = ? AND status != 'deleted' ORDER BY created_at DESC`,
+        [userId]
+      );
     }
 
-    const documents = contracts.map(c => ({
+    const contractDocs = contracts.map((c: any) => ({
       id: c.id,
-      name: `${c.type} Contract - ${c.id.slice(0, 8)}`,
+      name: `${c.type} Contract - ${String(c.id).slice(0, 8)}`,
       type: c.type,
       status: c.status,
       createdAt: c.created_at,
-      url: c.pdf_url
+      url: c.pdf_url,
+      source: 'contract' as const,
     }));
+
+    // Skip vault rows whose entity is a contract we already listed
+    // (to avoid duplicates in the UI).
+    const contractIds = new Set(contracts.map((c: any) => c.id));
+    const vaultDocs = vaultRows
+      .filter(v => !(v.entity_type === 'contract' && v.entity_id && contractIds.has(v.entity_id)))
+      .map(v => ({
+        id: v.id,
+        name: `${v.entity_type} - ${v.id.slice(0, 8)}`,
+        type: v.entity_type,
+        status: v.status,
+        createdAt: v.created_at,
+        url: `/api/vault/documents/${v.id}/stream`,
+        source: 'vault' as const,
+      }));
+
+    const documents = [...contractDocs, ...vaultDocs].sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
 
     // Audit log
     await logAudit(userId, 'LIST_VAULT_DOCUMENTS', 'vault', userId, req);
@@ -968,6 +1148,112 @@ app.get('/api/vault/documents', authMiddleware, async (req: Request, res: Respon
     });
   } catch (error) {
     console.error('Error fetching vault documents:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/vault/documents/:id/stream — authenticated, decrypts & streams the
+// document from the vault (R2 or POC store). RBAC: client = own only,
+// avocat/admin = all.
+app.get('/api/vault/documents/:id/stream', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const documentId = req.params.id as string;
+    const userId = (req as any).user.id;
+    const userRole = (req as any).user.role;
+
+    const row = await get<VaultDocumentRow>(
+      'SELECT * FROM vault_documents WHERE id = ?',
+      [documentId]
+    );
+    if (!row) {
+      res.status(404).json({ success: false, message: 'Document not found' });
+      return;
+    }
+    if (row.status !== 'ready') {
+      res.status(409).json({ success: false, message: `Document not ready (status=${row.status})` });
+      return;
+    }
+    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    if (!isPrivileged && row.user_id !== userId) {
+      await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    const { buffer } = await getDocumentBuffer(documentId);
+    await logAudit(userId, 'DOWNLOAD_VAULT_DOCUMENT', 'vault_document', documentId, req);
+
+    res.setHeader('Content-Type', row.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${row.id}"`);
+    res.status(200).send(buffer);
+  } catch (error: any) {
+    console.error('Error streaming vault document:', error?.message || error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/vault/documents/:id/download-url
+//
+// For documents that are NOT envelope-encrypted (encrypted_dek empty), returns
+// a short-lived presigned GET URL straight from R2. For encrypted documents
+// (the default in production), returns a streamUrl pointing at the auth+decrypt
+// streaming endpoint above — the client cannot decrypt without the KEK.
+app.get('/api/vault/documents/:id/download-url', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const documentId = req.params.id as string;
+    const userId = (req as any).user.id;
+    const userRole = (req as any).user.role;
+
+    const row = await get<VaultDocumentRow>(
+      'SELECT * FROM vault_documents WHERE id = ?',
+      [documentId]
+    );
+    if (!row) {
+      res.status(404).json({ success: false, message: 'Document not found' });
+      return;
+    }
+    if (row.status !== 'ready') {
+      res.status(409).json({ success: false, message: `Document not ready (status=${row.status})` });
+      return;
+    }
+    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    if (!isPrivileged && row.user_id !== userId) {
+      await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    if (row.encrypted_dek && row.encrypted_dek.length > 0) {
+      // Encrypted — client cannot decrypt; use the streaming endpoint.
+      res.status(200).json({
+        success: true,
+        streamUrl: `/api/vault/documents/${row.id}/stream`,
+      });
+      return;
+    }
+
+    // Legacy / POC unencrypted path: presign a GET (60s TTL).
+    try {
+      const { getR2Client, getR2Bucket } = await import('./storage/r2-client');
+      const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+      const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+      const client = getR2Client();
+      const url = await getSignedUrl(
+        client,
+        new GetObjectCommand({ Bucket: getR2Bucket(), Key: row.r2_key }),
+        { expiresIn: 60 }
+      );
+      res.status(200).json({ success: true, downloadUrl: url, expiresIn: 60 });
+    } catch (signErr: any) {
+      // Local POC driver — fall back to streaming endpoint.
+      res.status(200).json({
+        success: true,
+        streamUrl: `/api/vault/documents/${row.id}/stream`,
+        warning: signErr?.message || 'presign unavailable',
+      });
+    }
+  } catch (error: any) {
+    console.error('Error issuing vault download URL:', error?.message || error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -1654,6 +1940,13 @@ app.get('/health', (req: Request, res: Response) => {
 // Initializing Server if run directly
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 3000;
+  // Story 6-3 / AC-7: refuse to start in production if R2 + KEK config is incomplete.
+  try {
+    assertVaultConfig();
+  } catch (cfgErr: any) {
+    console.error('[AUTH SERVICE] Vault config invalid:', cfgErr?.message || cfgErr);
+    process.exit(1);
+  }
   initDb()
     .then(() => {
       app.listen(PORT, () => {
