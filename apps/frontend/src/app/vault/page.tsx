@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Globe, FileText, Download, ShieldAlert, Loader2 } from "lucide-react";
+import { FileText, Download, ShieldAlert, Loader2, Globe } from "lucide-react";
 import Link from "next/link";
 import { useEasyLawAuth } from "@/lib/privy";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { AppShell } from "@/components/site/AppShell";
 import { apiFetch, getApiUrl } from "@/lib/api";
 
 interface VaultDocument {
@@ -53,6 +54,8 @@ function VaultContent() {
       auditEntity: "Entité",
       auditIP: "Adresse IP",
       auditDate: "Date/Heure",
+      loading: "Chargement du coffre-fort...",
+      noAudit: "Aucune trace d'audit trouvée.",
     },
     PT: {
       title: "Cofre-Forte Seguro",
@@ -70,6 +73,8 @@ function VaultContent() {
       auditEntity: "Entidade",
       auditIP: "Endereço IP",
       auditDate: "Data/Hora",
+      loading: "A carregar o cofre-forte...",
+      noAudit: "Nenhum registo de auditoria encontrado.",
     },
   }[lang];
 
@@ -135,94 +140,201 @@ function VaultContent() {
   }, [getAccessToken]);
 
   return (
-    <main className="min-h-screen bg-[#FAFAF8] flex flex-col antialiased selection:bg-[#C9A84C] selection:text-white">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-[#E2E8F0] sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 text-[#1A365D]">
-            <Shield className="w-6 h-6 text-[#C9A84C]" />
-            <span className="font-semibold text-lg font-serif">EasyLaw</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/contracts" className="text-sm font-semibold text-[#1A365D] hover:text-[#C9A84C] transition">
-              Contrats
-            </Link>
-            <button
-              onClick={() => setLang((p) => (p === "FR" ? "PT" : "FR"))}
-              type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E2E8F0] text-sm text-[#1A365D] hover:bg-[#FAFAF8] transition"
+    <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-6xl mx-auto">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1
+            className="text-2xl font-bold mb-1"
+            style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}
+          >
+            {t.title}
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {t.subtitle}
+          </p>
+        </div>
+        <button
+          onClick={() => setLang((p) => (p === "FR" ? "PT" : "FR"))}
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45"
+          style={{ borderColor: "var(--surface-mist-strong)", color: "var(--text-secondary)" }}
+        >
+          <Globe className="w-4 h-4" aria-hidden="true" />
+          {lang}
+        </button>
+      </div>
+
+      {error && (
+        <div
+          className="p-3 mb-6 rounded-lg border text-sm"
+          style={{ background: "var(--status-red-bg)", borderColor: "var(--status-red-border)", color: "var(--status-red)" }}
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2
+            className="w-10 h-10 animate-spin mb-4"
+            style={{ color: "var(--brand-secondary)" }}
+            aria-hidden="true"
+          />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            {t.loading}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* Documents section */}
+          <section
+            className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
+            style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
+            aria-labelledby="vault-docs-heading"
+          >
+            <h2
+              id="vault-docs-heading"
+              className="text-lg font-bold mb-5 pb-4 border-b flex items-center gap-2"
+              style={{
+                fontFamily: "var(--font-serif)",
+                color: "var(--brand-primary)",
+                borderColor: "var(--surface-mist)",
+              }}
             >
-              <Globe className="w-4 h-4 text-[#C9A84C]" />
-              <span className="font-semibold">{lang}</span>
-            </button>
-          </div>
-        </div>
-      </header>
+              <FileText className="w-5 h-5" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+              {t.docsTitle}
+            </h2>
 
-      {/* Main Content */}
-      <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-12">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold text-[#1A365D] font-serif mb-2">{t.title}</h1>
-          <p className="text-gray-600 text-sm max-w-md mx-auto">{t.subtitle}</p>
-        </div>
+            {documents.length === 0 ? (
+              <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                {t.noDocs}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs md:text-sm">
+                  <thead>
+                    <tr className="border-b text-xs uppercase tracking-wider font-semibold" style={{ borderColor: "var(--surface-mist)", color: "var(--text-muted)" }}>
+                      <th className="pb-3 pr-4">{t.colName}</th>
+                      <th className="pb-3 pr-4">{t.colType}</th>
+                      <th className="pb-3 pr-4">{t.colStatus}</th>
+                      <th className="pb-3 pr-4">{t.colDate}</th>
+                      <th className="pb-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody style={{ color: "var(--text-primary)" }}>
+                    {documents.map((doc) => (
+                      <tr
+                        key={doc.id}
+                        className="border-b transition"
+                        style={{ borderColor: "var(--surface-mist)" }}
+                      >
+                        <td className="py-4 pr-4 font-semibold">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 shrink-0" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+                            <span className="truncate max-w-[200px] md:max-w-xs">{doc.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 pr-4 font-medium uppercase text-xs" style={{ color: "var(--text-muted)" }}>
+                          {doc.type}
+                        </td>
+                        <td className="py-4 pr-4">
+                          <span
+                            className="text-xs px-2.5 py-0.5 rounded-full font-bold border"
+                            style={{
+                              background: "var(--status-green-bg)",
+                              borderColor: "var(--status-green-border)",
+                              color: "var(--status-green)",
+                            }}
+                          >
+                            {doc.status}
+                          </span>
+                        </td>
+                        <td className="py-4 pr-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                          {new Date(doc.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 text-right">
+                          <a
+                            href={getApiUrl(doc.url)}
+                            download
+                            className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition shadow-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45"
+                            style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
+                          >
+                            <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                            {t.actionDownload}
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
-        {error && (
-          <div className="text-center py-8 text-red-600 text-sm">{error}</div>
-        )}
-
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-10 h-10 text-[#C9A84C] animate-spin mb-4" />
-            <p className="text-gray-500 text-sm">Chargement du coffre-fort...</p>
-          </div>
-        ) : (
-          <div className="space-y-12">
-            {/* Documents section */}
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-[#1A365D] font-serif mb-6 flex items-center gap-2 border-b border-[#E2E8F0] pb-4">
-                <FileText className="w-5 h-5 text-[#C9A84C]" />
-                <span>{t.docsTitle}</span>
+          {/* Admin Audit Trail Panel */}
+          {userRole === "admin_cabinet" && (
+            <section
+              className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
+              style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
+              aria-labelledby="vault-audit-heading"
+            >
+              <h2
+                id="vault-audit-heading"
+                className="text-lg font-bold mb-5 pb-4 border-b flex items-center gap-2"
+                style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)", borderColor: "var(--surface-mist)" }}
+              >
+                <ShieldAlert className="w-5 h-5" style={{ color: "var(--status-red)" }} aria-hidden="true" />
+                {t.auditTitle}
               </h2>
 
-              {documents.length === 0 ? (
-                <p className="text-gray-500 text-sm py-8 text-center">{t.noDocs}</p>
+              {auditLogs.length === 0 ? (
+                <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                  {t.noAudit}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs md:text-sm">
+                  <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-[#E2E8F0] text-gray-400 font-bold">
-                        <th className="pb-3 pr-4">{t.colName}</th>
-                        <th className="pb-3 pr-4">{t.colType}</th>
-                        <th className="pb-3 pr-4">{t.colStatus}</th>
-                        <th className="pb-3 pr-4">{t.colDate}</th>
-                        <th className="pb-3 text-right">Actions</th>
+                      <tr className="border-b font-semibold uppercase tracking-wider" style={{ borderColor: "var(--surface-mist)", color: "var(--text-muted)" }}>
+                        <th className="pb-3 pr-4">{t.auditDate}</th>
+                        <th className="pb-3 pr-4">{t.auditAction}</th>
+                        <th className="pb-3 pr-4">{t.auditUser}</th>
+                        <th className="pb-3 pr-4">{t.auditEntity}</th>
+                        <th className="pb-3 pr-4">{t.auditIP}</th>
+                        <th className="pb-3">User Agent</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E2E8F0]">
-                      {documents.map((doc) => (
-                        <tr key={doc.id} className="text-[#1A365D] hover:bg-[#FAFAF8] transition">
-                          <td className="py-4 pr-4 font-semibold flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-[#C9A84C] shrink-0" />
-                            <span className="truncate max-w-[200px] md:max-w-xs">{doc.name}</span>
+                    <tbody style={{ color: "var(--text-secondary)" }}>
+                      {auditLogs.map((log) => (
+                        <tr
+                          key={log.id}
+                          className="border-b font-mono transition"
+                          style={{ borderColor: "var(--surface-mist)" }}
+                        >
+                          <td className="py-3 pr-4 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                            {new Date(log.timestamp).toLocaleString()}
                           </td>
-                          <td className="py-4 pr-4 font-medium uppercase text-gray-500">{doc.type}</td>
-                          <td className="py-4 pr-4">
-                            <span className="bg-green-50 text-green-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-green-100">
-                              {doc.status}
+                          <td className="py-3 pr-4">
+                            <span
+                              className="px-2 py-0.5 rounded text-xs font-bold"
+                              style={{ background: "var(--surface-page)", color: "var(--brand-primary)" }}
+                            >
+                              {log.action}
                             </span>
                           </td>
-                          <td className="py-4 pr-4 text-gray-400 font-mono text-xs">
-                            {new Date(doc.createdAt).toLocaleDateString()}
+                          <td className="py-3 pr-4 font-medium truncate max-w-[120px]" style={{ color: "var(--brand-primary)" }}>
+                            {log.user_id || "Anonymous"}
                           </td>
-                          <td className="py-4 text-right">
-                            <a
-                              href={getApiUrl(doc.url)}
-                              download
-                              className="inline-flex items-center gap-1 py-1.5 px-3 bg-[#1A365D] hover:bg-[#1A365D]/95 text-white font-semibold text-xs rounded-lg transition shadow-sm"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>{t.actionDownload}</span>
-                            </a>
+                          <td className="py-3 pr-4 whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
+                            {log.entity_type} ({log.entity_id?.slice(0, 8)})
+                          </td>
+                          <td className="py-3 pr-4 font-semibold" style={{ color: "var(--brand-secondary)" }}>
+                            {log.ip_addr}
+                          </td>
+                          <td className="py-3 max-w-xs truncate" style={{ color: "var(--text-muted)" }} title={log.user_agent}>
+                            {log.user_agent}
                           </td>
                         </tr>
                       ))}
@@ -230,71 +342,24 @@ function VaultContent() {
                   </table>
                 </div>
               )}
-            </div>
-
-            {/* Admin Audit Trail Panel */}
-            {userRole === "admin_cabinet" && (
-              <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xl p-6">
-                <h2 className="text-xl font-bold text-[#1A365D] font-serif mb-6 flex items-center gap-2 border-b border-[#E2E8F0] pb-4">
-                  <ShieldAlert className="w-5 h-5 text-red-600" />
-                  <span>{t.auditTitle}</span>
-                </h2>
-
-                {auditLogs.length === 0 ? (
-                  <p className="text-gray-500 text-sm py-8 text-center">Aucune trace d'audit trouvée.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-[#E2E8F0] text-gray-400 font-bold uppercase tracking-wider">
-                          <th className="pb-3 pr-4">{t.auditDate}</th>
-                          <th className="pb-3 pr-4">{t.auditAction}</th>
-                          <th className="pb-3 pr-4">{t.auditUser}</th>
-                          <th className="pb-3 pr-4">{t.auditEntity}</th>
-                          <th className="pb-3 pr-4">{t.auditIP}</th>
-                          <th className="pb-3">User Agent</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#E2E8F0]">
-                        {auditLogs.map((log) => (
-                          <tr key={log.id} className="text-gray-600 hover:bg-[#FAFAF8] transition font-mono">
-                            <td className="py-3 pr-4 whitespace-nowrap text-gray-400">
-                              {new Date(log.timestamp).toLocaleString()}
-                            </td>
-                            <td className="py-3 pr-4">
-                              <span className="bg-slate-100 text-[#1A365D] px-2 py-0.5 rounded font-bold">
-                                {log.action}
-                              </span>
-                            </td>
-                            <td className="py-3 pr-4 text-[#1A365D] font-medium truncate max-w-[120px]">
-                              {log.user_id || "Anonymous"}
-                            </td>
-                            <td className="py-3 pr-4 whitespace-nowrap">
-                              {log.entity_type} ({log.entity_id?.slice(0, 8)})
-                            </td>
-                            <td className="py-3 pr-4 text-[#C9A84C] font-semibold">{log.ip_addr}</td>
-                            <td className="py-3 max-w-xs truncate text-gray-400" title={log.user_agent}>
-                              {log.user_agent}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </main>
+            </section>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 export default function VaultPage() {
   return (
     <AuthGuard>
-      <VaultContent />
+      <AppShell
+        requireAuth={false}
+        activeSection="vault"
+        breadcrumb={[{ label: "Coffre-Fort" }]}
+      >
+        <VaultContent />
+      </AppShell>
     </AuthGuard>
   );
 }

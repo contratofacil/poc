@@ -9,6 +9,7 @@ import {
   Clock,
   MessageSquare,
   Lock,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,7 +19,8 @@ export type AppSection =
   | "contracts"
   | "compliance"
   | "assistant"
-  | "vault";
+  | "vault"
+  | "admin";
 
 interface NavItem {
   id: AppSection;
@@ -34,6 +36,7 @@ const ITEMS: NavItem[] = [
   { id: "compliance", label: "Compliance", href: "/compliance", icon: Clock },
   { id: "assistant", label: "Luso-Legal", href: "/assistant", icon: MessageSquare },
   { id: "vault", label: "Coffre", href: "/vault", icon: Lock },
+  { id: "admin", label: "Administration", href: "/admin", icon: Settings },
 ];
 
 interface AppSidebarProps {

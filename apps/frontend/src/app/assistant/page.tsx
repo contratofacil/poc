@@ -1,9 +1,22 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Shield, Send, AlertTriangle, ArrowLeft, Loader2, Award, CheckCircle2, User, Bot, HelpCircle } from "lucide-react";
-import Link from "next/link";
+import {
+  Send,
+  AlertTriangle,
+  Loader2,
+  Award,
+  Bot,
+  HelpCircle,
+  CheckCircle2,
+  User,
+} from "lucide-react";
 import { getApiUrl } from "@/lib/api";
+import { useEasyLawAuth } from "@/lib/privy";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { AppShell } from "@/components/site/AppShell";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Message {
   id: string;
@@ -13,58 +26,63 @@ interface Message {
   inScope?: boolean;
 }
 
+// ─── Translations ─────────────────────────────────────────────────────────────
+
 const translations = {
   FR: {
-    title: "Assistant Luso-Legal",
-    subtitle: "Posez vos questions sur le droit portugais & européen",
-    backBtn: "Retour",
+    title: "Luso-Legal",
+    subtitle: "Assistant juridique — droit portugais & européen",
     placeholder: "Ex: Comment obtenir un NIF ? Quels sont les délais d'un bail ?",
     sendBtn: "Envoyer",
-    loginRequired: "Connexion requise",
-    loginRequiredDesc: "Veuillez vous connecter pour accéder à l'assistant juridique.",
-    loginBtn: "Se connecter",
     escalateBtn: "Escalader vers un avocat",
     escalateModalTitle: "Escalader la consultation",
-    escalateModalDesc: "Un avocat du cabinet partenaire Oliveira & Cameiro prendra en charge votre dossier. Veuillez résumer brièvement votre problème complexe :",
+    escalateModalDesc:
+      "Un avocat du cabinet partenaire Oliveira & Cameiro prendra en charge votre dossier. Résumez brièvement votre problème :",
     escalateSubmitBtn: "Soumettre à l'avocat",
     escalateCancelBtn: "Annuler",
-    escalateSuccess: "Votre demande a été escaladée avec succès ! Un avocat de Oliveira & Cameiro vous recontactera sous 24h.",
-    guardrailWarning: "Cette question a été identifiée comme hors périmètre (non liée au droit portugais ou européen).",
-    noHistory: "Débutez votre conversation avec l'assistant juridique. L'IA répondra sous 3 secondes sur les sujets de droit portugais.",
-    sourceLabel: "Source légale simulée :",
-    summaryPlaceholder: "Décrivez les détails de votre problème légal pour l'avocat...",
+    escalateSuccess:
+      "Votre demande a été escaladée avec succès ! Un avocat de Oliveira & Cameiro vous recontactera sous 24h.",
+    guardrailWarning:
+      "Cette question est hors périmètre (non liée au droit portugais ou européen).",
+    noHistory: "Débutez votre conversation. L'IA répond en quelques secondes sur les sujets de droit portugais & européen.",
+    disclaimer: "Ceci n'est pas un avis juridique — consultez un avocat pour toute décision.",
+    summaryPlaceholder: "Décrivez les détails de votre problème légal pour l'avocat…",
     errorGeneric: "Une erreur est survenue.",
+    historyLoading: "Chargement de l'historique…",
   },
   PT: {
-    title: "Assistente Luso-Legal",
-    subtitle: "Faça perguntas sobre o direito português e europeu",
-    backBtn: "Voltar",
-    placeholder: "Ex: Como obter um NIF? Quais são os prazos de um contrato de arrendamento?",
+    title: "Luso-Legal",
+    subtitle: "Assistente jurídico — direito português e europeu",
+    placeholder: "Ex: Como obter um NIF? Quais são os prazos de arrendamento?",
     sendBtn: "Enviar",
-    loginRequired: "Autenticação necessária",
-    loginRequiredDesc: "Por favor, inicie sessão para aceder ao assistente jurídico.",
-    loginBtn: "Entrar",
     escalateBtn: "Escalar para um advogado",
     escalateModalTitle: "Escalar consulta jurídica",
-    escalateModalDesc: "Um advogado do gabinete parceiro Oliveira & Cameiro tratará do seu caso. Por favor, resuma brevemente a sua questão complexa:",
+    escalateModalDesc:
+      "Um advogado do gabinete parceiro Oliveira & Cameiro tratará do seu caso. Resuma brevemente a sua questão:",
     escalateSubmitBtn: "Submeter para o advogado",
     escalateCancelBtn: "Cancelar",
-    escalateSuccess: "O seu pedido foi escalado com sucesso! Um advogado da Oliveira & Cameiro entrará em contacto em 24h.",
-    guardrailWarning: "Esta questão foi identificada como fora de âmbito (não relacionada com direito português ou europeu).",
-    noHistory: "Inicie a sua conversa com o assistente jurídico. A IA responderá em menos de 3 segundos sobre tópicos legais.",
-    sourceLabel: "Fonte legal simulada:",
-    summaryPlaceholder: "Descreva os detalhes do seu problema jurídico para o advogado...",
+    escalateSuccess:
+      "O seu pedido foi escalado com sucesso! Um advogado da Oliveira & Cameiro entrará em contacto em 24h.",
+    guardrailWarning:
+      "Esta questão está fora de âmbito (não relacionada com direito português ou europeu).",
+    noHistory: "Inicie a sua conversa. A IA responde em segundos sobre tópicos de direito português e europeu.",
+    disclaimer: "Isto não é um parecer jurídico — consulte um advogado para qualquer decisão.",
+    summaryPlaceholder: "Descreva os detalhes do seu problema jurídico para o advogado…",
     errorGeneric: "Ocorreu um erro.",
-  }
+    historyLoading: "A carregar o histórico…",
+  },
 };
 
-export default function AssistantPage() {
+// ─── Inner content (uses Privy hook) ─────────────────────────────────────────
+
+function AssistantPageContent() {
+  const { getAccessToken } = useEasyLawAuth();
+
   const [lang, setLang] = useState<"FR" | "PT">("FR");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [escalateSummary, setEscalateSummary] = useState("");
   const [isEscalating, setIsEscalating] = useState(false);
@@ -72,37 +90,27 @@ export default function AssistantPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const t = translations[lang];
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setIsAuthenticated(true);
-      fetchHistory(token);
-    } else {
-      setIsHistoryLoading(false);
-    }
+    initHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const fetchHistory = async (token: string) => {
+  const initHistory = async () => {
+    const token = await getAccessToken();
+    if (!token) { setIsHistoryLoading(false); return; }
     try {
       const res = await fetch(getApiUrl("/api/assistant/history"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setMessages(data.messages || []);
-      }
+      if (res.ok && data.success) setMessages(data.messages || []);
     } catch (err) {
       console.error("Failed to load history", err);
     } finally {
@@ -113,264 +121,321 @@ export default function AssistantPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-
-    const token = localStorage.getItem("token");
+    const token = await getAccessToken();
     if (!token) return;
 
-    const userMessageText = input;
+    const text = input.trim();
     setInput("");
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Optimistically add user message
-    const tempUserMsg: Message = {
-      id: Math.random().toString(),
-      role: "user",
-      content: userMessageText,
-    };
-    setMessages((prev) => [...prev, tempUserMsg]);
+    setMessages((prev) => [
+      ...prev,
+      { id: Math.random().toString(), role: "user", content: text },
+    ]);
 
     try {
       const res = await fetch(getApiUrl("/api/assistant/chat"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message: userMessageText }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: text }),
       });
-
       const data = await res.json();
       if (res.ok && data.success) {
         setMessages((prev) => [
           ...prev,
-          {
-            id: Math.random().toString(),
-            role: "assistant",
-            content: data.response,
-            inScope: data.inScope,
-          },
+          { id: Math.random().toString(), role: "assistant", content: data.response, inScope: data.inScope },
         ]);
       } else {
         setErrorMessage(data.message || t.errorGeneric);
       }
-    } catch (err) {
+    } catch {
       setErrorMessage(t.errorGeneric);
     } finally {
       setIsLoading(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e as unknown as React.FormEvent);
     }
   };
 
   const handleEscalate = async () => {
     if (!escalateSummary.trim() || isEscalating) return;
-
-    const token = localStorage.getItem("token");
+    const token = await getAccessToken();
     if (!token) return;
 
     setIsEscalating(true);
     setErrorMessage(null);
-
     try {
       const res = await fetch(getApiUrl("/api/assistant/escalate"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ conversation_summary: escalateSummary }),
       });
-
       const data = await res.json();
       if (res.ok && data.success) {
         setEscalateSuccessMessage(data.message || t.escalateSuccess);
         setEscalateSummary("");
         setShowEscalateModal(false);
-        setTimeout(() => {
-          setEscalateSuccessMessage(null);
-        }, 8000);
+        setTimeout(() => setEscalateSuccessMessage(null), 8000);
       } else {
         setErrorMessage(data.message || t.errorGeneric);
       }
-    } catch (err) {
+    } catch {
       setErrorMessage(t.errorGeneric);
     } finally {
       setIsEscalating(false);
     }
   };
 
-  if (isHistoryLoading) {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center font-serif text-[#1A365D]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C9A84C] mr-2" />
-        Chargement de l'assistant...
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <main className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 antialiased selection:bg-[#C9A84C] selection:text-white">
-        <div className="w-full max-w-md bg-white border border-[#E2E8F0] shadow-xl rounded-2xl p-8 text-center">
-          <Shield className="w-12 h-12 text-[#C9A84C] mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-[#1A365D] font-serif mb-2">{t.loginRequired}</h1>
-          <p className="text-gray-500 text-sm mb-6">{t.loginRequiredDesc}</p>
-          <Link
-            href="/login"
-            className="inline-block w-full py-3 px-4 bg-[#1A365D] hover:bg-[#1A365D]/90 text-white rounded-lg text-sm font-semibold transition"
-          >
-            {t.loginBtn}
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-[#FAFAF8] flex flex-col antialiased selection:bg-[#C9A84C] selection:text-white">
-      {/* Premium Header */}
-      <header className="bg-white border-b border-[#E2E8F0] px-4 py-4 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
+    <div
+      className="flex flex-col px-4 sm:px-6 lg:px-10 py-6"
+      style={{ height: "calc(100vh - 56px)" }}
+    >
+      {/* Success / error banners */}
+      {escalateSuccessMessage && (
+        <div
+          className="mb-4 p-3 rounded-lg border text-sm flex gap-2 items-center shrink-0"
+          style={{ background: "var(--status-green-bg)", borderColor: "var(--status-green-border)", color: "var(--status-green)" }}
+          role="alert"
+        >
+          <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <p>{escalateSuccessMessage}</p>
+        </div>
+      )}
+      {errorMessage && (
+        <div
+          className="mb-4 p-3 rounded-lg border text-sm flex gap-2 items-center shrink-0"
+          style={{ background: "var(--status-red-bg)", borderColor: "var(--status-red-border)", color: "var(--status-red)" }}
+          role="alert"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <p>{errorMessage}</p>
+        </div>
+      )}
+
+      {/* Chat container */}
+      <div
+        className="flex-1 rounded-xl border flex flex-col overflow-hidden shadow-[var(--shadow-card)] min-h-0"
+        style={{ borderColor: "var(--surface-mist)", background: "var(--surface-card)" }}
+      >
+        {/* ── Chat header ──────────────────────────────────────────────────── */}
+        <div
+          className="px-5 py-4 flex items-center justify-between gap-4 shrink-0"
+          style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
+        >
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 text-[#1A365D]">
-              <Shield className="w-7 h-7 text-[#C9A84C]" />
-              <span className="font-bold text-xl font-serif">EasyLaw</span>
-            </Link>
-            <span className="h-4 w-px bg-gray-200"></span>
-            <div className="hidden sm:block">
-              <h1 className="text-[#1A365D] font-serif font-semibold text-sm">{t.title}</h1>
+            <Bot className="w-5 h-5 shrink-0" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+            <div>
+              <h1 className="font-semibold text-base" style={{ fontFamily: "var(--font-serif)" }}>
+                {t.title}
+              </h1>
+              <p className="text-xs opacity-70">{t.subtitle}</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setLang(lang === "FR" ? "PT" : "FR")}
-              className="px-2.5 py-1 rounded-full border border-[#E2E8F0] text-xs font-semibold text-[#1A365D] hover:bg-[#FAFAF8] transition"
+              className="px-2.5 py-1 rounded-md border text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-white/50"
+              style={{ borderColor: "rgba(255,255,255,0.25)", color: "var(--text-inverse)" }}
+              aria-label="Changer de langue"
             >
               {lang}
             </button>
-            <Link
-              href="/"
-              className="flex items-center gap-1 text-xs font-semibold text-[#1A365D] hover:text-[#C9A84C] transition"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{t.backBtn}</span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Main chat window container */}
-      <section className="flex-1 max-w-5xl w-full mx-auto p-4 flex flex-col justify-between overflow-hidden">
-        {/* Escalation Success message */}
-        {escalateSuccessMessage && (
-          <div className="mb-4 p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm flex gap-3 items-center shadow-sm">
-            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
-            <p className="font-medium">{escalateSuccessMessage}</p>
-          </div>
-        )}
-
-        {/* Error banner */}
-        {errorMessage && (
-          <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex gap-3 items-center">
-            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-            <p className="font-medium">{errorMessage}</p>
-          </div>
-        )}
-
-        <div className="bg-white border border-[#E2E8F0] shadow-md rounded-2xl flex-1 flex flex-col min-h-[500px] max-h-[700px] overflow-hidden">
-          {/* Chat Header Actions */}
-          <div className="bg-[#1A365D] text-white px-6 py-4 flex justify-between items-center shrink-0">
-            <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-[#C9A84C]" />
-              <div>
-                <h2 className="font-semibold text-sm font-serif">{t.title}</h2>
-                <p className="text-[10px] text-gray-300">RAG-powered Portuguese Law System</p>
-              </div>
-            </div>
             {messages.length > 0 && (
               <button
                 onClick={() => setShowEscalateModal(true)}
-                className="bg-[#C9A84C] hover:bg-[#C9A84C]/95 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow flex items-center gap-1.5"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-white/50"
+                style={{ background: "var(--brand-secondary)", color: "var(--brand-primary)" }}
               >
-                <Award className="w-3.5 h-3.5" />
-                <span>{t.escalateBtn}</span>
+                <Award className="w-3.5 h-3.5" aria-hidden="true" />
+                {t.escalateBtn}
               </button>
             )}
           </div>
+        </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#FAFAF8]/50">
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                <HelpCircle className="w-12 h-12 text-gray-300 mb-3" />
-                <p className="text-gray-500 text-sm max-w-sm leading-relaxed">{t.noHistory}</p>
-              </div>
-            ) : (
-              messages.map((msg) => {
-                const isUser = msg.role === "user";
-                const isOutofScope = msg.role === "assistant" && msg.inScope === false;
+        {/* ── Messages area ─────────────────────────────────────────────────── */}
+        <div
+          className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0"
+          style={{ background: "var(--surface-page)" }}
+          aria-live="polite"
+          aria-label="Conversation"
+        >
+          {isHistoryLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+              <span className="ml-2 text-sm" style={{ color: "var(--text-muted)" }}>{t.historyLoading}</span>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8">
+              <HelpCircle className="w-12 h-12 mb-3" style={{ color: "var(--surface-mist-strong)" }} aria-hidden="true" />
+              <p className="text-sm max-w-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                {t.noHistory}
+              </p>
+            </div>
+          ) : (
+            messages.map((msg) => {
+              const isUser = msg.role === "user";
+              const isOutOfScope = msg.role === "assistant" && msg.inScope === false;
 
-                return (
-                  <div key={msg.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
-                      isUser
-                        ? "bg-[#1A365D] text-white rounded-br-none"
-                        : isOutofScope
-                        ? "bg-amber-50 border border-amber-200 text-amber-900 rounded-bl-none"
-                        : "bg-white border border-[#E2E8F0] text-[#1A365D] rounded-bl-none"
-                    }`}>
-                      <div className="flex items-center gap-1.5 mb-1 text-[10px] uppercase font-bold tracking-wider opacity-60">
-                        {isUser ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                        <span>{isUser ? "Vous" : "IA Assistant"}</span>
-                      </div>
-                      
-                      <p className="text-sm leading-relaxed whitespace-pre-line">{msg.content}</p>
+              return (
+                <div key={msg.id} className={`flex gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
+                  {!isUser && (
+                    <div
+                      className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: "var(--brand-primary)" }}
+                      aria-hidden="true"
+                    >
+                      <Bot className="w-4 h-4" style={{ color: "var(--brand-secondary)" }} />
+                    </div>
+                  )}
 
-                      {isOutofScope && (
-                        <div className="mt-2 pt-2 border-t border-amber-200 flex items-center gap-1.5 text-xs text-amber-800">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{t.guardrailWarning}</span>
+                  <div className={`max-w-[78%] flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
+                    <div
+                      className={`px-4 py-3 text-sm leading-relaxed whitespace-pre-line shadow-sm ${
+                        isUser
+                          ? "rounded-2xl rounded-br-sm"
+                          : isOutOfScope
+                          ? "rounded-2xl rounded-bl-sm"
+                          : "rounded-2xl rounded-bl-sm border"
+                      }`}
+                      style={
+                        isUser
+                          ? { background: "var(--brand-primary)", color: "var(--text-inverse)" }
+                          : isOutOfScope
+                          ? { background: "var(--status-amber-bg)", borderColor: "var(--status-amber-border)", color: "var(--text-primary)", border: "1px solid var(--status-amber-border)" }
+                          : { background: "var(--surface-card)", borderColor: "var(--surface-mist)", color: "var(--text-primary)" }
+                      }
+                    >
+                      {msg.content}
+
+                      {isOutOfScope && (
+                        <div
+                          className="mt-2 pt-2 border-t flex items-center gap-1.5 text-xs"
+                          style={{ borderColor: "var(--status-amber-border)", color: "var(--status-amber)" }}
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          {t.guardrailWarning}
                         </div>
                       )}
                     </div>
+
+                    {!isUser && (
+                      <p className="text-[10px] italic px-1" style={{ color: "var(--text-muted)" }}>
+                        {t.disclaimer}
+                      </p>
+                    )}
                   </div>
-                );
-              })
-            )}
-            <div ref={messagesEndRef} />
-          </div>
 
-          {/* User Input Form */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t border-[#E2E8F0] bg-white flex gap-2 shrink-0">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t.placeholder}
-              disabled={isLoading}
-              className="flex-1 px-4 py-2.5 rounded-lg border border-[#E2E8F0] focus:ring-2 focus:ring-[#1A365D]/20 focus:border-[#1A365D] text-sm focus:outline-none disabled:bg-gray-50"
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="bg-[#1A365D] hover:bg-[#1A365D]/90 text-white p-2.5 rounded-lg transition disabled:opacity-50 shrink-0"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </button>
-          </form>
-        </div>
-      </section>
+                  {isUser && (
+                    <div
+                      className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: "var(--surface-mist)", color: "var(--text-secondary)" }}
+                      aria-hidden="true"
+                    >
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
 
-      {/* Escalation Modal */}
-      {showEscalateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white border border-[#E2E8F0] shadow-2xl rounded-2xl max-w-lg w-full p-6 animate-scale-up">
-            <div className="flex items-center gap-2 text-[#1A365D] mb-4">
-              <Award className="w-6 h-6 text-[#C9A84C]" />
-              <h3 className="font-bold text-lg font-serif">{t.escalateModalTitle}</h3>
+          {isLoading && (
+            <div className="flex gap-2 justify-start">
+              <div
+                className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "var(--brand-primary)" }}
+                aria-hidden="true"
+              >
+                <Bot className="w-4 h-4" style={{ color: "var(--brand-secondary)" }} />
+              </div>
+              <div
+                className="px-4 py-3 rounded-2xl rounded-bl-sm border"
+                style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
+              >
+                <span className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full animate-bounce"
+                      style={{ background: "var(--text-muted)", animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </span>
+              </div>
             </div>
-            
-            <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* ── Input footer ──────────────────────────────────────────────────── */}
+        <form
+          onSubmit={handleSendMessage}
+          className="flex gap-3 p-4 border-t shrink-0"
+          style={{ borderColor: "var(--surface-mist)", background: "var(--surface-card)" }}
+        >
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleInputKeyDown}
+            placeholder={t.placeholder}
+            disabled={isLoading || isHistoryLoading}
+            rows={1}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm resize-none transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/20"
+            style={{
+              border: "1px solid var(--surface-mist-strong)",
+              color: "var(--text-primary)",
+              background: "var(--surface-page)",
+            }}
+            aria-label="Votre message"
+          />
+          <button
+            type="submit"
+            disabled={isLoading || isHistoryLoading || !input.trim()}
+            className="px-4 py-2.5 rounded-lg transition flex items-center justify-center shrink-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
+            aria-label={t.sendBtn}
+          >
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          </button>
+        </form>
+      </div>
+
+      {/* ── Escalation modal ─────────────────────────────────────────────────── */}
+      {showEscalateModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="escalate-modal-title"
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl p-6 shadow-[var(--shadow-modal)]"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--surface-mist)" }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Award className="w-5 h-5" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+              <h2
+                id="escalate-modal-title"
+                className="text-lg font-semibold"
+                style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}
+              >
+                {t.escalateModalTitle}
+              </h2>
+            </div>
+
+            <p className="text-sm mb-4 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {t.escalateModalDesc}
             </p>
 
@@ -379,18 +444,21 @@ export default function AssistantPage() {
               onChange={(e) => setEscalateSummary(e.target.value)}
               placeholder={t.summaryPlaceholder}
               rows={4}
-              className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A365D]/20 focus:border-[#1A365D] mb-6 resize-none"
+              className="w-full px-3 py-2.5 rounded-lg text-sm resize-none mb-5 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/20"
+              style={{
+                border: "1px solid var(--surface-mist-strong)",
+                color: "var(--text-primary)",
+                background: "var(--surface-page)",
+              }}
             />
 
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setShowEscalateModal(false);
-                  setEscalateSummary("");
-                }}
+                onClick={() => { setShowEscalateModal(false); setEscalateSummary(""); }}
                 disabled={isEscalating}
-                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition"
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition border focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45"
+                style={{ borderColor: "var(--surface-mist-strong)", color: "var(--text-secondary)" }}
               >
                 {t.escalateCancelBtn}
               </button>
@@ -398,15 +466,32 @@ export default function AssistantPage() {
                 type="button"
                 onClick={handleEscalate}
                 disabled={isEscalating || !escalateSummary.trim()}
-                className="px-4 py-2 bg-[#1A365D] hover:bg-[#1A365D]/90 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2"
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45 disabled:opacity-50"
+                style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
               >
-                {isEscalating && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>{t.escalateSubmitBtn}</span>
+                {isEscalating && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+                {t.escalateSubmitBtn}
               </button>
             </div>
           </div>
         </div>
       )}
-    </main>
+    </div>
+  );
+}
+
+// ─── Page export ──────────────────────────────────────────────────────────────
+
+export default function AssistantPage() {
+  return (
+    <AuthGuard>
+      <AppShell
+        requireAuth={false}
+        activeSection="assistant"
+        breadcrumb={[{ label: "Luso-Legal" }]}
+      >
+        <AssistantPageContent />
+      </AppShell>
+    </AuthGuard>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Globe, FileText, ArrowRight, Loader2 } from "lucide-react";
+import { FileText, ArrowRight, Loader2, Globe } from "lucide-react";
 import Link from "next/link";
 import { useEasyLawAuth } from "@/lib/privy";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { AppShell } from "@/components/site/AppShell";
 import { apiFetch } from "@/lib/api";
 
 interface Template {
@@ -65,88 +66,125 @@ function ContractsCatalogueContent() {
   }, [getAccessToken]);
 
   return (
-    <main className="min-h-screen bg-[#FAFAF8] flex flex-col antialiased selection:bg-[#C9A84C] selection:text-white">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-[#E2E8F0] sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 text-[#1A365D]">
-            <Shield className="w-6 h-6 text-[#C9A84C]" />
-            <span className="font-semibold text-lg font-serif">EasyLaw</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/vault" className="text-sm font-semibold text-[#1A365D] hover:text-[#C9A84C] transition">
-              Coffre-Fort
-            </Link>
-            <button
-              onClick={() => setLang((p) => (p === "FR" ? "PT" : "FR"))}
-              type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E2E8F0] text-sm text-[#1A365D] hover:bg-[#FAFAF8] transition"
-            >
-              <Globe className="w-4 h-4 text-[#C9A84C]" />
-              <span className="font-semibold">{lang}</span>
-            </button>
-          </div>
+    <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-6xl mx-auto">
+      {/* Toolbar row */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1
+            className="text-2xl font-bold mb-1"
+            style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}
+          >
+            {t.title}
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {t.subtitle}
+          </p>
         </div>
-      </header>
+        <button
+          onClick={() => setLang((p) => (p === "FR" ? "PT" : "FR"))}
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45"
+          style={{
+            borderColor: "var(--surface-mist-strong)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <Globe className="w-4 h-4" aria-hidden="true" />
+          {lang}
+        </button>
+      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-12 relative">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
-          <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-[#1A365D] blur-3xl" />
-          <div className="absolute bottom-[20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[#C9A84C] blur-3xl" />
-        </div>
-
-        <div className="mb-10 text-center relative z-10">
-          <h1 className="text-3xl font-bold text-[#1A365D] font-serif mb-2">{t.title}</h1>
-          <p className="text-gray-600 text-sm max-w-md mx-auto">{t.subtitle}</p>
+      {/* Decorative blurs */}
+      <div className="relative">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
+          <div
+            className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full blur-3xl"
+            style={{ background: "var(--brand-primary)" }}
+          />
+          <div
+            className="absolute bottom-[20%] left-[-10%] w-[400px] h-[400px] rounded-full blur-3xl"
+            style={{ background: "var(--brand-secondary)" }}
+          />
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 relative z-10">
-            <Loader2 className="w-10 h-10 text-[#C9A84C] animate-spin mb-4" />
-            <p className="text-gray-500 text-sm">{t.loading}</p>
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2
+              className="w-10 h-10 animate-spin mb-4"
+              style={{ color: "var(--brand-secondary)" }}
+              aria-hidden="true"
+            />
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {t.loading}
+            </p>
           </div>
         ) : templates.length === 0 ? (
-          <div className="text-center py-20 relative z-10">
-            <p className="text-gray-500 text-sm">{t.emptyTemplates}</p>
+          <div className="text-center py-20">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {t.emptyTemplates}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
             {templates.map((tpl) => (
               <div
                 key={tpl.id}
-                className="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+                className="rounded-xl p-6 shadow-[var(--shadow-card)] border flex flex-col justify-between transition hover:shadow-[var(--shadow-modal)]"
+                style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
               >
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs bg-[#C9A84C]/10 text-[#C9A84C] px-2.5 py-1 rounded-full font-bold">
+                    <span
+                      className="text-xs px-2.5 py-1 rounded-full font-bold"
+                      style={{
+                        background: "rgba(212,160,23,0.1)",
+                        color: "var(--brand-secondary)",
+                      }}
+                    >
                       {t.badgeVerified}
                     </span>
-                    <span className="text-xs text-gray-400 font-bold uppercase">{tpl.type}</span>
+                    <span className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+                      {tpl.type}
+                    </span>
                   </div>
-                  <h3 className="text-lg font-bold text-[#1A365D] font-serif mb-2">{tpl.name}</h3>
-                  <p className="text-gray-600 text-xs leading-relaxed mb-6">{tpl.description}</p>
+                  <h3
+                    className="text-lg font-bold mb-2"
+                    style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}
+                  >
+                    {tpl.name}
+                  </h3>
+                  <p className="text-xs leading-relaxed mb-6" style={{ color: "var(--text-secondary)" }}>
+                    {tpl.description}
+                  </p>
                 </div>
                 <Link
                   href={`/contracts/wizard?templateId=${tpl.id}&type=${tpl.type}`}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-[#1A365D] hover:bg-[#1A365D]/90 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-xs font-semibold transition shadow-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45"
+                  style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
                 >
+                  <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.generateBtn}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </Link>
               </div>
             ))}
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
 export default function ContractsCataloguePage() {
   return (
     <AuthGuard>
-      <ContractsCatalogueContent />
+      <AppShell
+        requireAuth={false}
+        activeSection="contracts"
+        breadcrumb={[{ label: "Contrats" }]}
+      >
+        <ContractsCatalogueContent />
+      </AppShell>
     </AuthGuard>
   );
 }

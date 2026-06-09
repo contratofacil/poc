@@ -1,10 +1,40 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Shield, Globe, ChevronLeft, ChevronRight, Check, AlertCircle, FileText, Loader2, Download } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight, Check, AlertCircle, FileText, Loader2, Download } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getApiUrl } from "@/lib/api";
+import { useEasyLawAuth } from "@/lib/privy";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+
+// ─── Design constants ─────────────────────────────────────────────────────────
+
+const CLS_BTN_PRIMARY = [
+  "inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition",
+  "bg-brand-primary text-text-inverse shadow-card",
+  "hover:bg-brand-primary-hover",
+  "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45",
+  "disabled:opacity-50 disabled:cursor-not-allowed",
+].join(" ");
+
+const CLS_BTN_OUTLINE = [
+  "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition",
+  "border border-surface-mist bg-transparent text-text-secondary",
+  "hover:bg-surface-page",
+  "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45",
+  "disabled:opacity-50 disabled:cursor-not-allowed",
+].join(" ");
+
+const CLS_INPUT = [
+  "w-full px-3.5 py-2.5 rounded-lg text-sm transition",
+  "bg-surface-card border border-surface-mist-strong",
+  "text-text-primary placeholder:text-text-muted",
+  "focus:outline-none focus:border-brand-primary focus:ring-[3px] focus:ring-brand-primary/20",
+].join(" ");
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 interface Question {
   key: string;
@@ -33,9 +63,10 @@ const travailQuestions: Question[] = [
   { key: "essai", label: "Période d'essai (jours)", placeholder: "Ex: 30", type: "number" },
 ];
 
+// ─── Inner component (needs useSearchParams) ──────────────────────────────────
+
 function WizardForm() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const templateId = searchParams.get("templateId") || "bail_habitation";
   const contractType = searchParams.get("type") || "Bail";
@@ -47,19 +78,15 @@ function WizardForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedContractId, setGeneratedContractId] = useState<string | null>(null);
   const [compiledContent, setCompiledContent] = useState<string>("");
-  const [token, setToken] = useState<string | null>(null);
+
+  const { getAccessToken } = useEasyLawAuth();
 
   const questions = contractType === "Bail" ? bailQuestions : travailQuestions;
+  const totalSteps = questions.length;
   const currentQuestion = questions[currentStep - 1];
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    setToken(savedToken);
-  }, []);
 
   // Update dynamic preview
   useEffect(() => {
-    // Client-side local preview rendering
     let preview = `CONTRAT DE ${contractType.toUpperCase()}\n\n`;
     if (contractType === "Bail") {
       preview += `Entre les soussignés :\n`;
@@ -86,10 +113,7 @@ function WizardForm() {
   }, [formData, contractType]);
 
   const handleInputChange = (value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [currentQuestion.key]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [currentQuestion.key]: value }));
     setError(null);
   };
 
@@ -99,7 +123,7 @@ function WizardForm() {
       return;
     }
     setError(null);
-    if (currentStep < 7) {
+    if (currentStep < totalSteps) {
       setCurrentStep((prev) => prev + 1);
     } else {
       submitContract();
@@ -116,12 +140,13 @@ function WizardForm() {
   const submitContract = async () => {
     setIsSubmitting(true);
     setError(null);
+    const token = await getAccessToken();
     try {
       const response = await fetch(getApiUrl("/api/contracts/generate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           type: contractType,
@@ -136,21 +161,19 @@ function WizardForm() {
       }
 
       setGeneratedContractId(resData.contractId);
-      // Fetch compiled content from backend to get official reference format
       await fetchOfficialPreview(resData.contractId);
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const fetchOfficialPreview = async (contractId: string) => {
+    const token = await getAccessToken();
     try {
       const response = await fetch(getApiUrl(`/api/contracts/${contractId}/preview`), {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -163,144 +186,185 @@ function WizardForm() {
     }
   };
 
+  const minsRemaining = Math.max(1, totalSteps - currentStep + 1);
+
   return (
-    <main className="min-h-screen bg-[#FAFAF8] flex flex-col antialiased selection:bg-[#C9A84C] selection:text-white">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-[#E2E8F0] sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/contracts" className="flex items-center gap-2 text-[#1A365D]">
-            <Shield className="w-6 h-6 text-[#C9A84C]" />
-            <span className="font-semibold text-lg font-serif">EasyLaw</span>
-          </Link>
+    <div className="min-h-screen bg-surface-page">
+
+      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
+      <div className="bg-white border-b border-surface-mist sticky top-0 z-50">
+        <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: "var(--brand-primary)" }}>
+              <span className="text-text-inverse font-bold text-sm font-serif">E</span>
+            </div>
+            <span className="font-semibold font-serif" style={{ color: "var(--brand-primary)" }}>EasyLaw</span>
+            <span className="text-text-muted text-sm hidden sm:inline">
+              / Contrats / {contractType}
+            </span>
+          </div>
           <div className="flex items-center gap-4">
-            <Link href="/vault" className="text-sm font-semibold text-[#1A365D] hover:text-[#C9A84C] transition">
-              Coffre-Fort
-            </Link>
+            <span className="text-xs text-text-muted hidden sm:inline">
+              {lang === "FR" ? "Brouillon sauvegardé · il y a 3s" : "Rascunho guardado · há 3s"}
+            </span>
             <button
-              onClick={() => setLang(lang === "FR" ? "PT" : "FR")}
               type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#E2E8F0] text-sm text-[#1A365D] hover:bg-[#FAFAF8] transition"
+              onClick={() => setLang(lang === "FR" ? "PT" : "FR")}
+              className="px-3 py-1.5 rounded-lg border border-surface-mist text-xs font-semibold text-text-secondary hover:bg-surface-page transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
             >
-              <Globe className="w-4 h-4 text-[#C9A84C]" />
-              <span className="font-semibold">{lang}</span>
+              {lang}
             </button>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Split-screen Layout */}
-      <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:py-10 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
-        {/* Left: Questionnaire */}
-        <div className="bg-white border border-[#E2E8F0] shadow-xl rounded-2xl p-6 md:p-8 flex flex-col justify-between min-h-[500px]">
+      {/* ── Stepper bar ──────────────────────────────────────────────────────── */}
+      {!generatedContractId && (
+        <div className="bg-white border-b border-surface-mist sticky top-14 z-40">
+          <div className="max-w-[1400px] mx-auto px-6 py-3">
+            <div className="flex items-center justify-between text-xs text-text-muted mb-2">
+              <span>
+                {lang === "FR"
+                  ? `Question ${currentStep} sur ${totalSteps}`
+                  : `Pergunta ${currentStep} de ${totalSteps}`}
+              </span>
+              <span>
+                {lang === "FR"
+                  ? `~${minsRemaining} min restantes`
+                  : `~${minsRemaining} min restantes`}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalSteps }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-1.5 rounded-full transition-all duration-300"
+                  style={{ background: i < currentStep ? "var(--brand-primary)" : "var(--surface-mist)" }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Split layout ─────────────────────────────────────────────────────── */}
+      <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-0">
+
+        {/* Left: questionnaire */}
+        <section className="lg:col-span-7 px-6 lg:px-10 py-10 lg:border-r border-surface-mist min-h-[calc(100vh-7rem)]">
+
           {generatedContractId ? (
-            <div className="text-center py-12 flex-1 flex flex-col justify-center items-center">
-              <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-4 border border-green-200">
+            /* ── Success state ───────────────────────────────────────────────── */
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5 border"
+                style={{
+                  background: "var(--status-green-bg)",
+                  color: "var(--status-green)",
+                  borderColor: "var(--status-green-border)",
+                }}>
                 <Check className="w-8 h-8" />
               </div>
-              <h2 className="text-2xl font-bold text-[#1A365D] font-serif mb-3">
-                {lang === "FR" ? "Contrat Généré !" : "Contrato Gerado !"}
-              </h2>
-              <p className="text-gray-500 text-sm mb-8 max-w-sm">
-                {lang === "FR" 
+              <h1 className="text-3xl mb-3">
+                {lang === "FR" ? "Contrat généré !" : "Contrato gerado!"}
+              </h1>
+              <p className="text-text-secondary text-lg leading-relaxed mb-8 max-w-sm">
+                {lang === "FR"
                   ? "Votre contrat a été certifié conforme et enregistré en toute sécurité dans votre Coffre-Fort."
                   : "O seu contrato foi certificado e guardado em total segurança no seu Cofre-Forte."}
               </p>
-              <div className="flex gap-4">
-                <Link
-                  href="/vault"
-                  className="py-2.5 px-6 border border-[#E2E8F0] text-[#1A365D] font-semibold text-sm rounded-lg hover:bg-[#FAFAF8] transition"
-                >
+              <div className="flex flex-wrap gap-3 justify-center">
+                <Link href="/vault" className={CLS_BTN_OUTLINE}>
                   {lang === "FR" ? "Accéder au Coffre-Fort" : "Aceder ao Cofre-Forte"}
                 </Link>
                 <a
                   href={getApiUrl(`/vault/${generatedContractId}.pdf`)}
                   download
-                  className="flex items-center gap-2 py-2.5 px-6 bg-[#C9A84C] hover:bg-[#C9A84C]/90 text-white font-semibold text-sm rounded-lg transition shadow-md"
+                  className={CLS_BTN_PRIMARY}
                 >
                   <Download className="w-4 h-4" />
-                  <span>{lang === "FR" ? "Télécharger PDF" : "Descarregar PDF"}</span>
+                  {lang === "FR" ? "Télécharger PDF" : "Descarregar PDF"}
                 </a>
               </div>
             </div>
           ) : (
+            /* ── Question form ───────────────────────────────────────────────── */
             <>
+              <p className="text-xs uppercase tracking-wider text-text-muted mb-2">
+                {lang === "FR"
+                  ? `Question ${currentStep} sur ${totalSteps}`
+                  : `Pergunta ${currentStep} de ${totalSteps}`}
+              </p>
+              <h1 id="question-label" className="text-3xl md:text-4xl mb-8">
+                {currentQuestion.label}
+              </h1>
+
+              {error && (
+                <div role="alert" className="p-4 mb-6 rounded-lg border flex gap-2 items-start text-sm"
+                  style={{
+                    background: "var(--status-red-bg)",
+                    borderColor: "var(--status-red-border)",
+                    color: "var(--status-red)",
+                  }}>
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
               <div>
-                {/* Progress bar */}
-                <div className="mb-8">
-                  <div className="flex justify-between items-center text-xs font-semibold text-gray-400 mb-1.5">
-                    <span>Question {currentStep} / 7</span>
-                    <span>{Math.round((currentStep / 7) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-[#FAFAF8] h-2 rounded-full overflow-hidden border border-[#E2E8F0]">
-                    <div 
-                      className="bg-[#C9A84C] h-full transition-all duration-300"
-                      style={{ width: `${(currentStep / 7) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="p-4 mb-6 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm flex gap-2 items-start">
-                    <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
-                    <span>{error}</span>
-                  </div>
+                {currentQuestion.type === "date" ? (
+                  <input
+                    type="date"
+                    aria-labelledby="question-label"
+                    value={formData[currentQuestion.key] || ""}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    className={CLS_INPUT}
+                  />
+                ) : currentQuestion.type === "number" ? (
+                  <input
+                    type="number"
+                    aria-labelledby="question-label"
+                    value={formData[currentQuestion.key] || ""}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder={currentQuestion.placeholder}
+                    className={CLS_INPUT}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    aria-labelledby="question-label"
+                    value={formData[currentQuestion.key] || ""}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder={currentQuestion.placeholder}
+                    className={CLS_INPUT}
+                  />
                 )}
-
-                {/* Form Field */}
-                <div className="space-y-4">
-                  <label className="block text-lg font-serif font-bold text-[#1A365D]">
-                    {currentQuestion.label}
-                  </label>
-                  {currentQuestion.type === "date" ? (
-                    <input
-                      type="date"
-                      value={formData[currentQuestion.key] || ""}
-                      onChange={(e) => handleInputChange(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-[#E2E8F0] focus:border-[#1A365D] focus:outline-none text-sm transition"
-                    />
-                  ) : currentQuestion.type === "number" ? (
-                    <input
-                      type="number"
-                      value={formData[currentQuestion.key] || ""}
-                      onChange={(e) => handleInputChange(e.target.value)}
-                      placeholder={currentQuestion.placeholder}
-                      className="w-full px-4 py-3 rounded-lg border border-[#E2E8F0] focus:border-[#1A365D] focus:outline-none text-sm transition"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={formData[currentQuestion.key] || ""}
-                      onChange={(e) => handleInputChange(e.target.value)}
-                      placeholder={currentQuestion.placeholder}
-                      className="w-full px-4 py-3 rounded-lg border border-[#E2E8F0] focus:border-[#1A365D] focus:outline-none text-sm transition"
-                    />
-                  )}
-                </div>
               </div>
 
-              {/* Navigation Buttons */}
-              <div className="flex justify-between items-center mt-12 pt-6 border-t border-[#E2E8F0]">
+              {/* Nav footer */}
+              <div className="flex items-center justify-between mt-10 pt-8 border-t border-surface-mist">
                 <button
                   type="button"
                   onClick={handlePrev}
                   disabled={currentStep === 1}
-                  className="flex items-center gap-1 py-2 px-4 border border-[#E2E8F0] hover:bg-[#FAFAF8] text-[#1A365D] rounded-lg text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={CLS_BTN_OUTLINE}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>{lang === "FR" ? "Précédent" : "Anterior"}</span>
+                  {lang === "FR" ? "Question précédente" : "Pergunta anterior"}
                 </button>
-
                 <button
                   type="button"
                   onClick={handleNext}
                   disabled={isSubmitting}
-                  className="flex items-center gap-1 py-2.5 px-6 bg-[#1A365D] hover:bg-[#1A365D]/90 text-white rounded-lg text-xs font-semibold transition shadow-md"
+                  className={CLS_BTN_PRIMARY}
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <span>{currentStep === 7 ? (lang === "FR" ? "Finaliser" : "Finalizar") : (lang === "FR" ? "Suivant" : "Seguinte")}</span>
+                      {currentStep === totalSteps
+                        ? (lang === "FR" ? "Finaliser" : "Finalizar")
+                        : (lang === "FR" ? "Continuer" : "Continuar")}
                       <ChevronRight className="w-4 h-4" />
                     </>
                   )}
@@ -308,40 +372,57 @@ function WizardForm() {
               </div>
             </>
           )}
-        </div>
+        </section>
 
-        {/* Right: Live Preview Pane */}
-        <div className="bg-[#1A365D] rounded-2xl p-6 text-white flex flex-col min-h-[500px] shadow-xl relative overflow-hidden">
-          {/* Subtle logo bg */}
-          <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] rounded-full bg-white/5 blur-3xl"></div>
-
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10 relative z-10">
-            <FileText className="w-5 h-5 text-[#C9A84C]" />
-            <span className="font-serif font-bold text-sm tracking-wider uppercase">
-              {lang === "FR" ? "Aperçu en temps réel" : "Visualização em tempo real"}
-            </span>
+        {/* Right: preview pane */}
+        <aside className="lg:col-span-5 bg-surface-page px-6 lg:px-8 py-10 lg:sticky lg:top-[7rem] lg:h-[calc(100vh-7rem)] overflow-y-auto flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-text-muted" />
+              <p className="text-xs uppercase tracking-wider text-text-muted">
+                {lang === "FR" ? "Aperçu temps réel" : "Pré-visualização em tempo real"}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-xs px-2.5 py-1.5 rounded-md border border-surface-mist bg-transparent text-text-secondary hover:bg-surface-page transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
+            >
+              {lang === "FR" ? "Téléchargement après paiement" : "Download após pagamento"}
+            </button>
           </div>
 
-          <div className="flex-1 bg-white/5 rounded-xl p-4 font-mono text-xs whitespace-pre-wrap overflow-y-auto leading-relaxed text-slate-200 border border-white/10 relative z-10">
+          <div className="bg-surface-card border border-surface-mist shadow-card rounded-md p-6 font-mono text-xs whitespace-pre-wrap overflow-y-auto leading-relaxed text-text-primary flex-1">
             {compiledContent}
           </div>
-        </div>
+
+          <p className="text-xs text-text-muted text-center mt-3">
+            {lang === "FR"
+              ? "Téléchargement disponible après finalisation (49 €)."
+              : "Download disponível após finalização (49 €)."}
+          </p>
+        </aside>
       </div>
-    </main>
+    </div>
   );
 }
 
-import { Suspense } from "react";
+// ─── Page export (Suspense required for useSearchParams) ─────────────────────
 
 export default function ContractWizardPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#FAFAF8]">
-        <Loader2 className="w-10 h-10 text-[#C9A84C] animate-spin mb-4" />
-        <p className="text-gray-500 text-sm">Chargement du questionnaire...</p>
-      </div>
-    }>
-      <WizardForm />
-    </Suspense>
+    <AuthGuard>
+      <Suspense
+        fallback={
+          <div className="flex flex-col items-center justify-center min-h-screen bg-surface-page">
+            <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--brand-secondary)" }} />
+            <p className="text-text-muted text-sm">
+              Chargement du questionnaire...
+            </p>
+          </div>
+        }
+      >
+        <WizardForm />
+      </Suspense>
+    </AuthGuard>
   );
 }
