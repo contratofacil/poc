@@ -1940,6 +1940,13 @@ app.get('/health', (req: Request, res: Response) => {
 // Initializing Server if run directly
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 3000;
+  // Story 6-3 / AC-7: refuse to start in production if R2 + KEK config is incomplete.
+  try {
+    assertVaultConfig();
+  } catch (cfgErr: any) {
+    console.error('[AUTH SERVICE] Vault config invalid:', cfgErr?.message || cfgErr);
+    process.exit(1);
+  }
   initDb()
     .then(() => {
       app.listen(PORT, () => {

@@ -55,11 +55,35 @@ npm install
 
 ```bash
 cd services/auth
+cp .env.example .env # première fois — éditer JWT_SECRET, DATABASE_URL, etc.
 npm start            # ts-node server.ts (port 3000 par défaut, configurable via PORT)
 ```
 
 > ⚠️ Le frontend Next.js utilise aussi le port 3000 par défaut. Lancez l'API sur un autre
 > port pour éviter la collision, par ex. : `PORT=4000 npm start`.
+
+#### Coffre-fort documents (story 6-3)
+
+Le service `auth` stocke les PDF de contrats et les pièces NIF dans **Cloudflare R2**
+(juridiction UE) avec chiffrement applicatif **AES-256-GCM (envelope encryption :
+DEK par fichier wrappée par une KEK maître)**.
+
+- **Mode dev / POC** : `VAULT_DRIVER=local` (défaut hors production). Les fichiers
+  vivent en mémoire dans le process Node — pratiques pour les tests, perdus au redémarrage.
+- **Mode prod** : `VAULT_DRIVER=r2`. Le serveur refuse de démarrer si une des variables
+  R2 (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) ou
+  la `VAULT_KEK_B64` est absente / mal formée.
+
+Pour générer une KEK :
+
+```bash
+openssl rand -base64 32
+# ou
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+⚠️ **La KEK doit être sauvegardée hors-bande (secret manager).** Sa perte rend
+tous les documents chiffrés irrécupérables. Voir `services/auth/.env.example` pour le détail.
 
 ### Frontend — application web
 
