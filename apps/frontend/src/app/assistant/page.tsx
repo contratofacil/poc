@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Shield, Send, AlertTriangle, ArrowLeft, Loader2, Award, CheckCircle2, User, Bot, HelpCircle } from "lucide-react";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -93,7 +94,7 @@ export default function AssistantPage() {
 
   const fetchHistory = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:3001/api/assistant/history", {
+      const res = await fetch(getApiUrl("/api/assistant/history"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -130,7 +131,7 @@ export default function AssistantPage() {
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
-      const res = await fetch("http://localhost:3001/api/assistant/chat", {
+      const res = await fetch(getApiUrl("/api/assistant/chat"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -170,7 +171,7 @@ export default function AssistantPage() {
     setErrorMessage(null);
 
     try {
-      const res = await fetch("http://localhost:3001/api/assistant/escalate", {
+      const res = await fetch(getApiUrl("/api/assistant/escalate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

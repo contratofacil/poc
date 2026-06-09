@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EasyLaw — Le droit portugais, démocratisé</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand-primary:#1a3a5c; --brand-primary-hover:#12293f;
+    --brand-secondary:#d4a017; --brand-secondary-hover:#b8891a;
+    --surface-page:#f8f6f1; --surface-card:#ffffff; --surface-mist:#e8e4dd;
+    --text-primary:#1a202c; --text-secondary:#4a5568; --text-muted:#718096;
+    --status-green:#16a34a; --status-amber:#d97706; --status-red:#dc2626;
+  }
+  body{font-family:'Inter',ui-sans-serif,system-ui;background:var(--surface-page);color:var(--text-primary);}
+  h1,h2,h3{font-family:'Playfair Display',ui-serif,Georgia,serif;color:var(--brand-primary);letter-spacing:-0.015em;}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+  .btn-primary{background:var(--brand-primary);color:var(--surface-page);}
+  .btn-primary:hover{background:var(--brand-primary-hover);}
+  .btn-gold{background:var(--brand-secondary);color:var(--text-primary);font-weight:600;}
+  .btn-gold:hover{background:var(--brand-secondary-hover);}
+  .btn-outline{border:1px solid var(--surface-mist);background:transparent;color:var(--text-secondary);}
+  .btn-outline:hover{background:var(--surface-page);}
+  .ring-brand:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(26 58 92 / 0.20);}
+  .shadow-card{box-shadow:0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);}
+  .border-mist{border-color:var(--surface-mist);}
+  .text-muted{color:var(--text-muted);}
+  .text-secondary-c{color:var(--text-secondary);}
+  .gold-fade::after{content:"";display:block;height:2px;width:48px;background:var(--brand-secondary);margin-top:12px;border-radius:2px;}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="border-b border-mist bg-white/70 backdrop-blur sticky top-0 z-20">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--brand-primary);">
+        <span class="text-white font-bold text-lg" style="font-family:'Playfair Display',serif;">E</span>
+      </div>
+      <span class="text-lg font-semibold" style="color:var(--brand-primary);font-family:'Playfair Display',serif;">EasyLaw</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-7 text-sm text-secondary-c">
+      <a href="#features" class="hover:text-[color:var(--brand-primary)]">Produits</a>
+      <a href="#how" class="hover:text-[color:var(--brand-primary)]">Comment ça marche</a>
+      <a href="#pricing" class="hover:text-[color:var(--brand-primary)]">Tarifs</a>
+      <a href="#cabinet" class="hover:text-[color:var(--brand-primary)]">Le Cabinet</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button class="btn-outline ring-brand text-xs rounded-md px-2.5 py-1.5">FR ▾</button>
+      <button class="btn-outline ring-brand text-sm rounded-md px-3 py-1.5 hidden sm:inline">Se connecter</button>
+      <button class="btn-gold ring-brand text-sm rounded-md px-4 py-2">Commencer</button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="relative overflow-hidden">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-32 grid lg:grid-cols-12 gap-12 items-center">
+    <div class="lg:col-span-7">
+      <div class="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-secondary-c bg-white border border-mist rounded-full px-3 py-1 mb-6">
+        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--brand-secondary);"></span>
+        En partenariat avec Oliveira &amp; Carneiro Advogados
+      </div>
+      <h1 class="text-4xl md:text-5xl lg:text-6xl leading-[1.05] mb-6">
+        Le droit portugais,<br>
+        <span class="italic" style="color:var(--brand-secondary);">démocratisé.</span>
+      </h1>
+      <p class="text-lg text-secondary-c max-w-xl mb-8 leading-relaxed">
+        NIF en 48h, contrats conformes en quelques clics, conformité PME pilotée &mdash; supervisé par un véritable cabinet d'avocats portugais.
+      </p>
+      <div class="flex flex-wrap gap-3 mb-10">
+        <button class="btn-gold ring-brand rounded-lg px-6 py-3 text-base shadow-card">Commencer mon dossier NIF — 99 €</button>
+        <button class="btn-outline ring-brand rounded-lg px-6 py-3 text-base">Voir la démo (2 min)</button>
+      </div>
+
+      <!-- Trust bar -->
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-muted">
+        <span class="flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>TLS 1.3 chiffré</span>
+        <span class="flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Conforme RGPD</span>
+        <span class="flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M9 14l-2 8 5-3 5 3-2-8"/></svg>Ordem dos Advogados</span>
+        <span class="flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>500+ dossiers traités</span>
+      </div>
+    </div>
+
+    <!-- Visual / mock card -->
+    <div class="lg:col-span-5">
+      <div class="relative">
+        <!-- Floating card behind -->
+        <div class="absolute -top-6 -right-4 w-72 h-32 rounded-xl border border-mist bg-white shadow-card p-4 hidden lg:block opacity-90 rotate-[3deg]">
+          <p class="text-xs uppercase tracking-wider text-muted mb-1">Compliance Dashboard</p>
+          <div class="flex items-center gap-1.5 mt-2">
+            <span class="flex-1 h-2 rounded" style="background:#dcfce7;"></span>
+            <span class="flex-1 h-2 rounded" style="background:#dcfce7;"></span>
+            <span class="flex-1 h-2 rounded" style="background:#fef3c7;"></span>
+            <span class="flex-1 h-2 rounded" style="background:#fee2e2;"></span>
+          </div>
+          <div class="mt-3 flex items-center justify-between text-xs">
+            <span class="text-secondary-c">11 obligations</span>
+            <span class="font-medium" style="color:var(--status-red);">1 urgente</span>
+          </div>
+        </div>
+
+        <!-- Main NIF tracking card -->
+        <div class="relative bg-white rounded-2xl border border-mist shadow-card p-6 lg:p-8">
+          <div class="flex items-start justify-between mb-6">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted mb-1">Dossier NIF</p>
+              <p class="mono text-sm">NIF-2026-001234</p>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded-full" style="background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;">En cours</span>
+          </div>
+
+          <h3 class="text-xl mb-1">Lucas Martin</h3>
+          <p class="text-sm text-muted mb-6">Soumis le 7 juin 2026 · 14:23</p>
+
+          <!-- Timeline -->
+          <ol class="relative space-y-5 pl-7 border-l-2 border-mist">
+            <li class="relative">
+              <span class="absolute -left-[34px] top-0 w-5 h-5 rounded-full flex items-center justify-center" style="background:var(--brand-primary);">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <p class="text-sm font-medium">Documents vérifiés</p>
+              <p class="text-xs text-muted">7 juin · 16:08</p>
+            </li>
+            <li class="relative">
+              <span class="absolute -left-[34px] top-0 w-5 h-5 rounded-full flex items-center justify-center" style="background:var(--brand-primary);">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <p class="text-sm font-medium">Procuration signée</p>
+              <p class="text-xs text-muted">7 juin · 18:42</p>
+            </li>
+            <li class="relative">
+              <span class="absolute -left-[34px] top-0 w-5 h-5 rounded-full border-2" style="background:var(--surface-card);border-color:var(--brand-secondary);">
+                <span class="block w-1.5 h-1.5 rounded-full m-auto mt-[5px]" style="background:var(--brand-secondary);"></span>
+              </span>
+              <p class="text-sm font-medium">Dépôt Finanças en cours</p>
+              <p class="text-xs text-muted">Estimation : 9 juin · matinée</p>
+            </li>
+            <li class="relative opacity-50">
+              <span class="absolute -left-[34px] top-0 w-5 h-5 rounded-full border-2 border-mist" style="background:var(--surface-card);"></span>
+              <p class="text-sm">NIF reçu</p>
+              <p class="text-xs text-muted">À venir</p>
+            </li>
+          </ol>
+
+          <div class="mt-6 pt-5 border-t border-mist flex items-center justify-between">
+            <span class="text-xs text-muted">Cabinet partenaire</span>
+            <span class="text-xs font-medium">Oliveira &amp; Carneiro</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="border-t border-mist bg-white">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 py-20 lg:py-28">
+    <div class="max-w-2xl mb-14">
+      <p class="text-xs uppercase tracking-wider text-muted mb-3">Notre offre grand public</p>
+      <h2 class="text-3xl md:text-4xl mb-4">Quatre outils, un cabinet derrière chacun.</h2>
+      <p class="text-secondary-c text-lg leading-relaxed">Tout ce dont les expatriés, freelances et PME ont besoin pour naviguer le droit portugais &mdash; sans payer des honoraires inaccessibles.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Feature 1 -->
+      <article class="rounded-xl border border-mist p-7 hover:shadow-card transition">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style="background:#1a3a5c;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <h3 class="text-xl mb-2">NIF &amp; Starter Pack</h3>
+        <p class="text-sm text-secondary-c leading-relaxed mb-4">Obtenez votre NIF portugais en 48h. Procuration générée automatiquement, dépôt Finanças par notre cabinet partenaire. Compte bancaire optionnel.</p>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-semibold">99 €</span>
+          <span class="text-xs text-muted">paiement unique</span>
+        </div>
+      </article>
+
+      <!-- Feature 2 -->
+      <article class="rounded-xl border border-mist p-7 hover:shadow-card transition">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style="background:#1a3a5c;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <h3 class="text-xl mb-2">Générateur de contrats</h3>
+        <p class="text-sm text-secondary-c leading-relaxed mb-4">5 modèles MVP : bail NRAU, prestation de services, CDD/CDI, statuts Lda, procuration. Conformes, à jour, prévisualisation PDF en temps réel.</p>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-semibold">49 €</span>
+          <span class="text-xs text-muted">par contrat</span>
+        </div>
+      </article>
+
+      <!-- Feature 3 -->
+      <article class="rounded-xl border border-mist p-7 hover:shadow-card transition">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style="background:#1a3a5c;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3 class="text-xl mb-2">Compliance Dashboard</h3>
+        <p class="text-sm text-secondary-c leading-relaxed mb-4">Vos échéances légales en un coup d'œil : VERT (à jour), ORANGE (90 jours), ROUGE (30 jours ou retard). Alertes email + SMS automatiques.</p>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-semibold">29 €<span class="text-base font-normal text-muted">/mois</span></span>
+        </div>
+      </article>
+
+      <!-- Feature 4 -->
+      <article class="rounded-xl border border-mist p-7 hover:shadow-card transition">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style="background:#1a3a5c;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <h3 class="text-xl mb-2">Luso-Legal — IA juridique</h3>
+        <p class="text-sm text-secondary-c leading-relaxed mb-4">Assistant 24h/24 spécialisé droit portugais, formé sur la jurisprudence DRE/DGSI. Escalade vers un avocat humain pour les cas complexes.</p>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-semibold">19 €<span class="text-base font-normal text-muted">/mois</span></span>
+          <span class="text-xs text-muted">10 questions/mois inclus</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="border-t border-mist">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 py-20 lg:py-24">
+    <div class="text-center max-w-2xl mx-auto mb-14">
+      <p class="text-xs uppercase tracking-wider text-muted mb-3">Comment ça marche</p>
+      <h2 class="text-3xl md:text-4xl mb-4">Trois étapes. Zéro surprise.</h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-8">
+      <div>
+        <span class="mono text-xs text-muted">01</span>
+        <h3 class="text-xl mt-2 mb-3 gold-fade inline-block">Vous choisissez</h3>
+        <p class="text-sm text-secondary-c leading-relaxed">NIF, contrat, compliance, conseil IA. Pricing affiché avant de commencer, jamais de devis caché.</p>
+      </div>
+      <div>
+        <span class="mono text-xs text-muted">02</span>
+        <h3 class="text-xl mt-2 mb-3 gold-fade inline-block">Nous traitons</h3>
+        <p class="text-sm text-secondary-c leading-relaxed">Le cabinet Oliveira &amp; Carneiro supervise chaque dossier. Documents chiffrés AES-256. RGPD respecté.</p>
+      </div>
+      <div>
+        <span class="mono text-xs text-muted">03</span>
+        <h3 class="text-xl mt-2 mb-3 gold-fade inline-block">Vous recevez</h3>
+        <p class="text-sm text-secondary-c leading-relaxed">NIF par email sous 48h, contrats téléchargeables immédiatement, alertes compliance ponctuelles.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CABINET PARTNERSHIP -->
+<section id="cabinet" class="border-t border-mist bg-white">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 py-20 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
+    <div>
+      <p class="text-xs uppercase tracking-wider text-muted mb-3">Partenariat stratégique</p>
+      <h2 class="text-3xl md:text-4xl mb-5">Oliveira &amp; Carneiro Advogados &mdash; un vrai cabinet derrière chaque dossier.</h2>
+      <p class="text-secondary-c text-lg leading-relaxed mb-6">
+        EasyLaw n'est pas un agrégateur de PDF. Chaque dossier est supervisé par un avocat inscrit à l'<em>Ordem dos Advogados</em>, garantissant la conformité juridique et le secret professionnel.
+      </p>
+      <ul class="space-y-2 text-sm text-secondary-c">
+        <li class="flex items-start gap-2"><span class="mt-1.5 w-1 h-1 rounded-full" style="background:var(--brand-secondary);"></span>Inscrit Ordem dos Advogados (Cédula Profissional disponible sur demande)</li>
+        <li class="flex items-start gap-2"><span class="mt-1.5 w-1 h-1 rounded-full" style="background:var(--brand-secondary);"></span>Secret professionnel garanti — ségrégation stricte des données</li>
+        <li class="flex items-start gap-2"><span class="mt-1.5 w-1 h-1 rounded-full" style="background:var(--brand-secondary);"></span>15 ans d'expérience en droit migratoire et commercial portugais</li>
+      </ul>
+    </div>
+    <div class="rounded-2xl p-10 lg:p-12" style="background:var(--brand-primary);color:var(--surface-page);">
+      <blockquote class="text-xl lg:text-2xl leading-relaxed font-light italic" style="font-family:'Playfair Display',serif;">
+        « EasyLaw nous permet de servir des centaines de clients que nous n'aurions jamais touchés en cabinet traditionnel — et chacun reçoit la même qualité juridique. »
+      </blockquote>
+      <div class="mt-6 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full" style="background:var(--brand-secondary);"></div>
+        <div>
+          <p class="text-sm font-medium">Manuel Carneiro</p>
+          <p class="text-xs opacity-70">Avocat associé, Oliveira &amp; Carneiro</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="border-t border-mist">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 py-20 text-center">
+    <h2 class="text-3xl md:text-5xl mb-4">Prêt à simplifier votre relation au droit portugais ?</h2>
+    <p class="text-lg text-secondary-c mb-8 max-w-xl mx-auto">Commencez avec votre NIF en 48h, ou explorez gratuitement nos outils.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <button class="btn-gold ring-brand rounded-lg px-7 py-3.5 text-base shadow-card">Commencer mon dossier NIF</button>
+      <button class="btn-outline ring-brand rounded-lg px-7 py-3.5 text-base">Parler à un conseiller</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="border-t border-mist" style="background:var(--brand-primary);color:var(--surface-page);">
+  <div class="max-w-[1280px] mx-auto px-6 lg:px-8 py-12 grid md:grid-cols-4 gap-8 text-sm">
+    <div>
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-7 h-7 rounded-md flex items-center justify-center" style="background:var(--brand-secondary);">
+          <span class="font-bold text-sm" style="color:var(--brand-primary);font-family:'Playfair Display',serif;">E</span>
+        </div>
+        <span class="font-semibold" style="font-family:'Playfair Display',serif;">EasyLaw</span>
+      </div>
+      <p class="opacity-70 leading-relaxed">Plateforme juridique pour le Portugal. Supervisée par Oliveira &amp; Carneiro Advogados.</p>
+    </div>
+    <div>
+      <p class="font-medium mb-3">Produits</p>
+      <ul class="space-y-2 opacity-80">
+        <li>NIF &amp; Starter Pack</li>
+        <li>Générateur de contrats</li>
+        <li>Compliance Dashboard</li>
+        <li>Luso-Legal IA</li>
+      </ul>
+    </div>
+    <div>
+      <p class="font-medium mb-3">Société</p>
+      <ul class="space-y-2 opacity-80">
+        <li>À propos</li>
+        <li>Le Cabinet</li>
+        <li>Contact</li>
+        <li>Blog</li>
+      </ul>
+    </div>
+    <div>
+      <p class="font-medium mb-3">Légal</p>
+      <ul class="space-y-2 opacity-80">
+        <li>CGU</li>
+        <li>Politique de confidentialité</li>
+        <li>RGPD</li>
+        <li>Mentions légales</li>
+      </ul>
+    </div>
+  </div>
+  <div class="border-t border-white/10">
+    <div class="max-w-[1280px] mx-auto px-6 lg:px-8 py-5 text-xs opacity-60 flex flex-wrap items-center justify-between gap-3">
+      <p>© 2026 EasyLaw. Tous droits réservés.</p>
+      <p>EasyLaw est une plateforme technologique. Les actes juridiques sont supervisés par Oliveira &amp; Carneiro Advogados (Ordem dos Advogados).</p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

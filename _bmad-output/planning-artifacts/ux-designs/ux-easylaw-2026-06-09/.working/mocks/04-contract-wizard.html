@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wizard Bail NRAU — EasyLaw</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--brand-primary:#1a3a5c;--brand-secondary:#d4a017;--surface-page:#f8f6f1;--surface-card:#fff;--surface-mist:#e8e4dd;--text-primary:#1a202c;--text-secondary:#4a5568;--text-muted:#718096;}
+  body{font-family:'Inter',sans-serif;background:var(--surface-page);color:var(--text-primary);}
+  h1,h2,h3{font-family:'Playfair Display',serif;color:var(--brand-primary);letter-spacing:-0.015em;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .btn-primary{background:var(--brand-primary);color:#f8f6f1;}.btn-primary:hover{background:#12293f;}
+  .btn-gold{background:var(--brand-secondary);color:#1a202c;font-weight:600;}.btn-gold:hover{background:#b8891a;}
+  .btn-outline{border:1px solid var(--surface-mist);background:transparent;color:var(--text-secondary);}.btn-outline:hover{background:var(--surface-page);}
+  .ring-brand:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(26 58 92 / .20);}
+  .shadow-card{box-shadow:0 1px 3px 0 rgb(0 0 0 / .06), 0 1px 2px -1px rgb(0 0 0 / .04);}
+  .shadow-modal{box-shadow:0 10px 40px -8px rgb(26 58 92 / .18);}
+  .border-mist{border-color:var(--surface-mist);}
+  .text-muted{color:var(--text-muted);}.text-sec{color:var(--text-secondary);}
+  .input-base{background:#fff;border:1px solid var(--surface-mist);border-radius:8px;padding:10px 14px;font-size:14px;width:100%;transition:border-color 150ms;}
+  .input-base:focus{outline:none;border-color:var(--brand-primary);box-shadow:0 0 0 3px rgb(26 58 92 / .15);}
+  .gold-highlight{animation:goldFade 1.5s ease-out;}
+  @keyframes goldFade{0%{background:rgba(212,160,23,0.30);}100%{background:transparent;}}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- TOP BAR -->
+<div class="border-b border-mist bg-white">
+  <div class="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-md flex items-center justify-center" style="background:var(--brand-primary);">
+        <span class="text-white font-bold text-sm" style="font-family:'Playfair Display',serif;">E</span>
+      </div>
+      <span class="font-semibold" style="color:var(--brand-primary);font-family:'Playfair Display',serif;">EasyLaw</span>
+      <span class="text-muted text-sm hidden sm:inline">/ Contrats / Bail résidentiel NRAU</span>
+    </div>
+    <span class="text-xs text-muted">Brouillon sauvegardé · il y a 2s</span>
+  </div>
+</div>
+
+<!-- STEPPER -->
+<div class="border-b border-mist bg-white">
+  <div class="max-w-[1400px] mx-auto px-6 py-4">
+    <div class="flex items-center justify-between text-xs text-muted mb-2">
+      <span>Question 4 sur 7</span>
+      <span>~3 min restantes</span>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--brand-primary);"></div>
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--brand-primary);"></div>
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--brand-primary);"></div>
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--brand-primary);"></div>
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--surface-mist);"></div>
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--surface-mist);"></div>
+      <div class="flex-1 h-1.5 rounded-full" style="background:var(--surface-mist);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SPLIT LAYOUT -->
+<div class="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-0">
+
+  <!-- LEFT: form -->
+  <section class="lg:col-span-7 px-6 lg:px-10 py-10 lg:border-r border-mist min-h-[calc(100vh-7rem)]">
+
+    <p class="text-xs uppercase tracking-wider text-muted mb-2">Loyer &amp; modalités financières</p>
+    <h1 class="text-3xl md:text-4xl mb-3">Quelles sont les conditions financières du bail&nbsp;?</h1>
+    <p class="text-sec text-lg leading-relaxed mb-8">Ces informations apparaîtront à l'article 4 du contrat. Tous les montants sont en euros.</p>
+
+    <div class="space-y-6">
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Loyer mensuel <span class="text-[#dc2626]">*</span></label>
+        <div class="relative">
+          <input type="text" class="input-base pl-9" placeholder="850" value="850">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted">€</span>
+        </div>
+        <p class="text-xs text-muted mt-1.5">Indiqué hors charges. Les charges seront détaillées séparément à la question suivante.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Caution (dépôt de garantie) <span class="text-[#dc2626]">*</span></label>
+        <div class="relative">
+          <input type="text" class="input-base pl-9" placeholder="1 700" value="1 700">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted">€</span>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-mist hover:bg-[color:var(--surface-page)]">1 mois (850&nbsp;€)</button>
+          <button type="button" class="text-xs px-2.5 py-1 rounded-full font-semibold" style="background:var(--brand-primary);color:white;">2 mois (1 700&nbsp;€)</button>
+          <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-mist hover:bg-[color:var(--surface-page)]">3 mois (2 550&nbsp;€)</button>
+        </div>
+        <p class="text-xs text-muted mt-1.5">Le NRAU limite la caution à 3 mois maximum. <a class="underline" style="color:var(--brand-primary);">En savoir plus</a></p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Mode de paiement <span class="text-[#dc2626]">*</span></label>
+        <select class="input-base">
+          <option>Virement bancaire (recommandé pour la traçabilité)</option>
+          <option>Espèces avec reçu signé</option>
+          <option>MB Way</option>
+          <option>Chèque</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Jour du mois pour le paiement</label>
+        <input type="text" class="input-base" placeholder="5" value="5">
+        <p class="text-xs text-muted mt-1.5">Le NRAU prévoit traditionnellement le 1er du mois échu. Vous pouvez convenir d'une autre date.</p>
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-10 pt-6 border-t border-mist flex items-center justify-between">
+      <button class="btn-outline ring-brand rounded-lg px-5 py-2.5 text-sm">← Question précédente</button>
+      <button class="btn-primary ring-brand rounded-lg px-6 py-2.5 text-sm shadow-card">Continuer →</button>
+    </div>
+
+  </section>
+
+  <!-- RIGHT: PDF preview -->
+  <aside class="lg:col-span-5 bg-[color:var(--surface-page)] px-6 lg:px-8 py-10 lg:sticky lg:top-[7rem] lg:h-[calc(100vh-7rem)]">
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-xs uppercase tracking-wider text-muted">Aperçu temps réel</p>
+      <button class="btn-outline ring-brand text-xs rounded-md px-2.5 py-1.5">Page 1 sur 4</button>
+    </div>
+
+    <!-- Mock PDF -->
+    <div class="bg-white border border-mist shadow-modal rounded-md p-8 mx-auto" style="max-width:420px;aspect-ratio:1/1.414;">
+      <p class="mono text-[10px] text-muted mb-4 text-center">CONTRATO DE ARRENDAMENTO HABITACIONAL · NRAU</p>
+      <h2 class="text-base text-center mb-2" style="font-size:14px;">Contrato de Arrendamento</h2>
+      <p class="text-[10px] text-center text-muted mb-6 italic">Regime do Novo Arrendamento Urbano (Lei n.º 6/2006)</p>
+
+      <div class="text-[10px] leading-relaxed space-y-3 text-[color:var(--text-primary)]">
+        <p><span class="font-semibold">Artigo 1.º — Identificação das partes.</span> Senhorio: <span class="bg-yellow-100 px-1">[à compléter]</span>, contribuinte fiscal <span class="mono">n.º _________</span>. Arrendatário: <span class="bg-yellow-100 px-1">Lucas Martin</span>, contribuinte <span class="mono">PT_________</span>.</p>
+
+        <p><span class="font-semibold">Artigo 2.º — Objecto.</span> O senhorio dá de arrendamento ao arrendatário o imóvel sito em <span class="bg-yellow-100 px-1">Rua [à compléter], Lisboa</span>, destinado exclusivamente a habitação.</p>
+
+        <p><span class="font-semibold">Artigo 3.º — Prazo.</span> O contrato vigora pelo prazo de <span class="bg-yellow-100 px-1">1 ano</span>, renovável automaticamente nos termos do art.º 1096.º do Código Civil.</p>
+
+        <p><span class="font-semibold">Artigo 4.º — Renda &amp; condições financeiras.</span> A renda mensal é fixada em <span class="gold-highlight px-1 rounded font-semibold">850,00 €</span>, paga até ao dia <span class="gold-highlight px-1 rounded font-semibold">5</span> de cada mês, por <span class="gold-highlight px-1 rounded font-semibold">transferência bancária</span>. O arrendatário entregou caução no montante de <span class="gold-highlight px-1 rounded font-semibold">1 700,00 €</span>, correspondente a 2 meses de renda, conforme art.º 13.º do NRAU.</p>
+
+        <p><span class="font-semibold">Artigo 5.º — Encargos.</span> Constituem encargos do arrendatário <span class="bg-yellow-100 px-1">[à compléter à la question suivante]</span>.</p>
+      </div>
+
+      <p class="text-[9px] text-muted mt-6 text-center">Page 1 / 4 — Aperçu en cours de génération</p>
+    </div>
+
+    <div class="mt-4 text-xs text-muted text-center">
+      <p>Les champs <span class="gold-highlight px-1 rounded">dorés</span> viennent d'être remplis.</p>
+      <p class="mt-1">Téléchargement disponible après paiement final (49 €).</p>
+    </div>
+
+  </aside>
+</div>
+
+</body>
+</html>

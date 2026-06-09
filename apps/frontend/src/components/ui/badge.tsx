@@ -28,9 +28,9 @@ interface ComplianceBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const DOT_COLOR: Record<ComplianceStatus, string> = {
-  green: "bg-[#16a34a]",
-  amber: "bg-[#d97706]",
-  red:   "bg-[#dc2626]",
+  green: "bg-[#15803d]",
+  amber: "bg-[#b45309]",
+  red:   "bg-[#b91c1c]",
 };
 
 const DEFAULT_LABEL: Record<ComplianceStatus, string> = {

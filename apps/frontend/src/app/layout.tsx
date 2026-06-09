@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { ConsentProvider } from "@/lib/consent/context";
+import { ConsentBanner } from "@/components/ui/ConsentBanner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -40,7 +42,10 @@ export default function RootLayout({
       className={`${inter.variable} ${playfair.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[var(--surface-page)] text-[var(--text-primary)]">
-        <Providers>{children}</Providers>
+        <ConsentProvider>
+          <Providers>{children}</Providers>
+          <ConsentBanner />
+        </ConsentProvider>
       </body>
     </html>
   );

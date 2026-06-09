@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Shield, Globe, Check, AlertCircle, Upload, CreditCard, User, FileText, ChevronRight, ChevronLeft } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
 
 const translations = {
   FR: {
@@ -154,7 +155,7 @@ export default function NifWizardPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/api/nif/upload", {
+      const response = await fetch(getApiUrl("/api/nif/upload"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -218,7 +219,7 @@ export default function NifWizardPage() {
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:3001/api/nif/apply", {
+      const response = await fetch(getApiUrl("/api/nif/apply"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

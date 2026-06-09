@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Shield, ArrowLeft, Check, AlertCircle, Plus, Calendar, Bell, Mail, Clock, CheckCircle2, AlertTriangle, Trash2, Play } from "lucide-react";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 
 interface ComplianceItem {
   id: string;
@@ -55,7 +56,7 @@ export default function ComplianceDashboard() {
 
     try {
       // 1. Get profile to find user_id and lang
-      const profileRes = await fetch("http://localhost:3001/api/auth/profile", {
+      const profileRes = await fetch(getApiUrl("/api/auth/profile"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const profileData = await profileRes.json();
@@ -80,8 +81,8 @@ export default function ComplianceDashboard() {
 
   const fetchItems = async (uId: string | null) => {
     const url = uId 
-      ? `http://localhost:3001/api/compliance?user_id=${uId}` 
-      : "http://localhost:3001/api/compliance";
+      ? getApiUrl(`/api/compliance?user_id=${uId}`) 
+      : getApiUrl("/api/compliance");
     
     const res = await fetch(url);
     const data = await res.json();
@@ -91,7 +92,7 @@ export default function ComplianceDashboard() {
   };
 
   const fetchLogs = async () => {
-    const res = await fetch("http://localhost:3001/api/compliance/alert-logs");
+    const res = await fetch(getApiUrl("/api/compliance/alert-logs"));
     const data = await res.json();
     if (res.ok && data.success) {
       setLogs(data.logs);
@@ -103,7 +104,7 @@ export default function ComplianceDashboard() {
     if (!newTitle || !newDueDate) return;
 
     try {
-      const res = await fetch("http://localhost:3001/api/compliance", {
+      const res = await fetch(getApiUrl("/api/compliance"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -137,7 +138,7 @@ export default function ComplianceDashboard() {
   const handleToggleStatus = async (item: ComplianceItem) => {
     const newStatus = item.status === "completed" ? "pending" : "completed";
     try {
-      const res = await fetch(`http://localhost:3001/api/compliance/${item.id}`, {
+      const res = await fetch(getApiUrl(`/api/compliance/${item.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus })
@@ -160,7 +161,7 @@ export default function ComplianceDashboard() {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`http://localhost:3001/api/compliance/${id}`, {
+      const res = await fetch(getApiUrl(`/api/compliance/${id}`), {
         method: "DELETE"
       });
       if (res.ok) {
@@ -179,7 +180,7 @@ export default function ComplianceDashboard() {
     setIsSimulating(true);
     setMessage(null);
     try {
-      const res = await fetch("http://localhost:3001/api/compliance/simulate-alerts", {
+      const res = await fetch(getApiUrl("/api/compliance/simulate-alerts"), {
         method: "POST"
       });
       const data = await res.json();
