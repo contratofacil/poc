@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-/* ─── EasyLaw — Legal Prestige Design System ─────────────────────────────── */
+/* ─── EasyLaw — Legal Prestige Design System ─────────────────────────────────
+   CHANGELOG 2026-06-09 (D-011, UX review): AA-conformance hardening of
+   text.muted, status.{green,amber,red}.{fg,border}, focus ring alpha, and
+   addition of surface.mistStrong / shadow-focus-on-gold. See tokens.ts.
+   ─────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
   /* ── Brand ── */
@@ -10,27 +14,28 @@
   --color-brand-secondary-hover: #b8891a;
 
   /* ── Surfaces ── */
-  --color-surface-page:     #f8f6f1;   /* Warm White     */
-  --color-surface-card:     #ffffff;
-  --color-surface-mist:     #e8e4dd;   /* Borders/dividers */
-  --color-surface-sidebar:  #1a3a5c;
+  --color-surface-page:         #f8f6f1;   /* Warm White */
+  --color-surface-card:         #ffffff;
+  --color-surface-mist:         #e8e4dd;   /* Internal dividers (non-interactive) */
+  --color-surface-mist-strong:  #92897a;   /* Interactive borders — 1.4.11 (3.20:1 vs page) */
+  --color-surface-sidebar:      #1a3a5c;
 
   /* ── Text ── */
   --color-text-primary:     #1a202c;
   --color-text-secondary:   #4a5568;
   --color-text-inverse:     #f8f6f1;
-  --color-text-muted:       #718096;
+  --color-text-muted:       #5e6b7e;       /* AA: 4.55:1 on surface.page */
 
-  /* ── Status (Compliance tri-color) ── */
-  --color-status-green:         #16a34a;
+  /* ── Status (Compliance tri-color — AA-compliant fg) ── */
+  --color-status-green:         #15803d;
   --color-status-green-bg:      #dcfce7;
-  --color-status-green-border:  #bbf7d0;
-  --color-status-amber:         #d97706;
+  --color-status-green-border:  #86efac;
+  --color-status-amber:         #b45309;
   --color-status-amber-bg:      #fef3c7;
-  --color-status-amber-border:  #fde68a;
-  --color-status-red:           #dc2626;
+  --color-status-amber-border:  #fcd34d;
+  --color-status-red:           #b91c1c;
   --color-status-red-bg:        #fee2e2;
-  --color-status-red-border:    #fecaca;
+  --color-status-red-border:    #fca5a5;
 
   /* ── Typography ── */
   --font-sans:    var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -45,8 +50,10 @@
   --radius-full: 9999px;
 
   /* ── Shadows ── */
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-  --shadow-modal: 0 10px 40px -8px rgb(26 58 92 / 0.18);
+  --shadow-card:           0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-modal:          0 10px 40px -8px rgb(26 58 92 / 0.18);
+  --shadow-focus:          0 0 0 3px rgb(26 58 92 / 0.45);    /* AA-visible focus ring */
+  --shadow-focus-on-gold:  0 0 0 3px rgb(26 58 92 / 0.65);    /* Reinforced on gold surfaces */
 }
 
 /* ─── CSS custom properties (runtime access) ─────────────────────────────── */
@@ -61,23 +68,28 @@
   --surface-page:            #f8f6f1;
   --surface-card:            #ffffff;
   --surface-mist:            #e8e4dd;
+  --surface-mist-strong:     #92897a;
 
   /* Text */
   --text-primary:            #1a202c;
   --text-secondary:          #4a5568;
   --text-inverse:            #f8f6f1;
-  --text-muted:              #718096;
+  --text-muted:              #5e6b7e;
 
-  /* Status */
-  --status-green:            #16a34a;
+  /* Status (AA-compliant) */
+  --status-green:            #15803d;
   --status-green-bg:         #dcfce7;
-  --status-green-border:     #bbf7d0;
-  --status-amber:            #d97706;
+  --status-green-border:     #86efac;
+  --status-amber:            #b45309;
   --status-amber-bg:         #fef3c7;
-  --status-amber-border:     #fde68a;
-  --status-red:              #dc2626;
+  --status-amber-border:     #fcd34d;
+  --status-red:              #b91c1c;
   --status-red-bg:           #fee2e2;
-  --status-red-border:       #fecaca;
+  --status-red-border:       #fca5a5;
+
+  /* Shadows */
+  --shadow-focus:            0 0 0 3px rgb(26 58 92 / 0.45);
+  --shadow-focus-on-gold:    0 0 0 3px rgb(26 58 92 / 0.65);
 
   /* Background default */
   --background: var(--surface-page);
@@ -102,4 +114,4 @@ h1, h2, h3 {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-mist); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #c5bfb5; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-mist-strong); }

@@ -25,19 +25,19 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           className={[
             "w-full rounded-lg border px-3 py-2 text-sm",
-            "bg-white text-[#1a202c] placeholder:text-[#718096]",
+            "bg-white text-[#1a202c] placeholder:text-[#5e6b7e]",
             "transition-colors duration-150",
             "focus:outline-none focus:ring-2 focus:ring-[#1a3a5c] focus:border-transparent",
             "disabled:opacity-50 disabled:cursor-not-allowed",
             error
-              ? "border-[#dc2626] focus:ring-[#dc2626]"
-              : "border-[#e8e4dd] hover:border-[#c5bfb5]",
+              ? "border-[#b91c1c] focus:ring-[#b91c1c]"
+              : "border-[#92897a] hover:border-[#5e6b7e]",
             className,
           ].join(" ")}
           {...props}
         />
-        {error && <p className="text-xs text-[#dc2626]">{error}</p>}
-        {hint && !error && <p className="text-xs text-[#718096]">{hint}</p>}
+        {error && <p className="text-xs text-[#b91c1c]">{error}</p>}
+        {hint && !error && <p className="text-xs text-[#5e6b7e]">{hint}</p>}
       </div>
     );
   }
