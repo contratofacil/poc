@@ -110,6 +110,17 @@ h1, h2, h3 {
   color: var(--brand-primary);
 }
 
+/* ─── Gold-fade underline (decorative, used on landing "How it works" steps) ── */
+.gold-fade::after {
+  content: "";
+  display: block;
+  height: 2px;
+  width: 48px;
+  background: var(--brand-secondary);
+  margin-top: 12px;
+  border-radius: 2px;
+}
+
 /* ─── Scrollbar (subtle) ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
