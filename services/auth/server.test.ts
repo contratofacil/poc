@@ -21,6 +21,7 @@ beforeEach(async () => {
   await run('DELETE FROM contracts');
   await run('DELETE FROM audit_log');
   await run('DELETE FROM system_settings');
+  await run('DELETE FROM vault_documents');
 });
 
 describe('POST /api/nif/apply & POST /api/nif/upload', () => {

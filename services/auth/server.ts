@@ -1083,26 +1083,61 @@ app.get('/vault/:filename', async (req: Request, res: Response): Promise<void> =
 });
 
 // GET /api/vault/documents
+//
+// Story 6-3: returns the union of `contracts` (legacy) and `vault_documents`
+// (new R2-backed uploads). Response shape is preserved for the frontend
+// (id, name, type, status, createdAt, url) — `url` is the existing
+// `/vault/{contractId}.pdf` for contracts, and `/api/vault/documents/:id/stream`
+// for new entries.
 app.get('/api/vault/documents', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.id;
     const userRole = (req as any).user.role;
+    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
 
     let contracts: any[] = [];
-    if (userRole === 'admin_cabinet' || userRole === 'avocat') {
+    let vaultRows: VaultDocumentRow[] = [];
+    if (isPrivileged) {
       contracts = await all<any>('SELECT * FROM contracts ORDER BY created_at DESC');
+      vaultRows = await all<VaultDocumentRow>(
+        `SELECT * FROM vault_documents WHERE status != 'deleted' ORDER BY created_at DESC`
+      );
     } else {
       contracts = await all<any>('SELECT * FROM contracts WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+      vaultRows = await all<VaultDocumentRow>(
+        `SELECT * FROM vault_documents WHERE user_id = ? AND status != 'deleted' ORDER BY created_at DESC`,
+        [userId]
+      );
     }
 
-    const documents = contracts.map(c => ({
+    const contractDocs = contracts.map((c: any) => ({
       id: c.id,
-      name: `${c.type} Contract - ${c.id.slice(0, 8)}`,
+      name: `${c.type} Contract - ${String(c.id).slice(0, 8)}`,
       type: c.type,
       status: c.status,
       createdAt: c.created_at,
-      url: c.pdf_url
+      url: c.pdf_url,
+      source: 'contract' as const,
     }));
+
+    // Skip vault rows whose entity is a contract we already listed
+    // (to avoid duplicates in the UI).
+    const contractIds = new Set(contracts.map((c: any) => c.id));
+    const vaultDocs = vaultRows
+      .filter(v => !(v.entity_type === 'contract' && v.entity_id && contractIds.has(v.entity_id)))
+      .map(v => ({
+        id: v.id,
+        name: `${v.entity_type} - ${v.id.slice(0, 8)}`,
+        type: v.entity_type,
+        status: v.status,
+        createdAt: v.created_at,
+        url: `/api/vault/documents/${v.id}/stream`,
+        source: 'vault' as const,
+      }));
+
+    const documents = [...contractDocs, ...vaultDocs].sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
 
     // Audit log
     await logAudit(userId, 'LIST_VAULT_DOCUMENTS', 'vault', userId, req);
@@ -1113,6 +1148,112 @@ app.get('/api/vault/documents', authMiddleware, async (req: Request, res: Respon
     });
   } catch (error) {
     console.error('Error fetching vault documents:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/vault/documents/:id/stream — authenticated, decrypts & streams the
+// document from the vault (R2 or POC store). RBAC: client = own only,
+// avocat/admin = all.
+app.get('/api/vault/documents/:id/stream', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const documentId = req.params.id as string;
+    const userId = (req as any).user.id;
+    const userRole = (req as any).user.role;
+
+    const row = await get<VaultDocumentRow>(
+      'SELECT * FROM vault_documents WHERE id = ?',
+      [documentId]
+    );
+    if (!row) {
+      res.status(404).json({ success: false, message: 'Document not found' });
+      return;
+    }
+    if (row.status !== 'ready') {
+      res.status(409).json({ success: false, message: `Document not ready (status=${row.status})` });
+      return;
+    }
+    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    if (!isPrivileged && row.user_id !== userId) {
+      await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    const { buffer } = await getDocumentBuffer(documentId);
+    await logAudit(userId, 'DOWNLOAD_VAULT_DOCUMENT', 'vault_document', documentId, req);
+
+    res.setHeader('Content-Type', row.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${row.id}"`);
+    res.status(200).send(buffer);
+  } catch (error: any) {
+    console.error('Error streaming vault document:', error?.message || error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/vault/documents/:id/download-url
+//
+// For documents that are NOT envelope-encrypted (encrypted_dek empty), returns
+// a short-lived presigned GET URL straight from R2. For encrypted documents
+// (the default in production), returns a streamUrl pointing at the auth+decrypt
+// streaming endpoint above — the client cannot decrypt without the KEK.
+app.get('/api/vault/documents/:id/download-url', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const documentId = req.params.id as string;
+    const userId = (req as any).user.id;
+    const userRole = (req as any).user.role;
+
+    const row = await get<VaultDocumentRow>(
+      'SELECT * FROM vault_documents WHERE id = ?',
+      [documentId]
+    );
+    if (!row) {
+      res.status(404).json({ success: false, message: 'Document not found' });
+      return;
+    }
+    if (row.status !== 'ready') {
+      res.status(409).json({ success: false, message: `Document not ready (status=${row.status})` });
+      return;
+    }
+    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    if (!isPrivileged && row.user_id !== userId) {
+      await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    if (row.encrypted_dek && row.encrypted_dek.length > 0) {
+      // Encrypted — client cannot decrypt; use the streaming endpoint.
+      res.status(200).json({
+        success: true,
+        streamUrl: `/api/vault/documents/${row.id}/stream`,
+      });
+      return;
+    }
+
+    // Legacy / POC unencrypted path: presign a GET (60s TTL).
+    try {
+      const { getR2Client, getR2Bucket } = await import('./storage/r2-client');
+      const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+      const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+      const client = getR2Client();
+      const url = await getSignedUrl(
+        client,
+        new GetObjectCommand({ Bucket: getR2Bucket(), Key: row.r2_key }),
+        { expiresIn: 60 }
+      );
+      res.status(200).json({ success: true, downloadUrl: url, expiresIn: 60 });
+    } catch (signErr: any) {
+      // Local POC driver — fall back to streaming endpoint.
+      res.status(200).json({
+        success: true,
+        streamUrl: `/api/vault/documents/${row.id}/stream`,
+        warning: signErr?.message || 'presign unavailable',
+      });
+    }
+  } catch (error: any) {
+    console.error('Error issuing vault download URL:', error?.message || error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

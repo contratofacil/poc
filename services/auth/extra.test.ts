@@ -39,6 +39,7 @@ beforeEach(async () => {
   await run('DELETE FROM payments');
   await run('DELETE FROM audit_log');
   await run('DELETE FROM system_settings');
+  await run('DELETE FROM vault_documents');
 });
 
 // ---------------------------------------------------------------------------
