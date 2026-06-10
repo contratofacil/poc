@@ -142,3 +142,121 @@ INSERT INTO system_settings (key, value) VALUES
 ('compliance_red_days', '30'),
 ('assistant_system_prompt', 'Vous êtes Luso-Legal, assistant juridique pour le droit portugais. Répondez uniquement aux questions relatives à la législation portugaise et européenne.')
 ON CONFLICT (key) DO NOTHING;
+
+-- Epic 9: Module B — Recherche Juridique IA
+
+CREATE TABLE IF NOT EXISTS legal_documents (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  content_chunk TEXT NOT NULL,
+  chunk_index INTEGER DEFAULT 0,
+  qdrant_id TEXT,
+  date TEXT,
+  doc_type TEXT,
+  indexed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(source, external_id, chunk_index)
+);
+
+CREATE TABLE IF NOT EXISTS research_searches (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  query TEXT NOT NULL,
+  mode TEXT DEFAULT 'standard',
+  response_text TEXT,
+  sources_json TEXT,
+  summary TEXT,
+  table_json TEXT,
+  pdf_vault_id TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS indexing_runs (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  status TEXT DEFAULT 'running',
+  docs_processed INTEGER DEFAULT 0,
+  error TEXT,
+  started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS llm_prompts (
+  id TEXT PRIMARY KEY,
+  key TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  system_prompt TEXT NOT NULL,
+  user_prompt_template TEXT,
+  provider TEXT DEFAULT 'anthropic',
+  model TEXT DEFAULT 'claude-haiku-4-5',
+  max_tokens INTEGER DEFAULT 2048,
+  temperature REAL DEFAULT 0.3,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_by TEXT
+);
+
+INSERT INTO llm_prompts (id, key, name, description, system_prompt, user_prompt_template, provider, model, max_tokens, temperature) VALUES
+(
+  'prompt-research-standard',
+  'research_standard_system',
+  'Recherche Standard — Synthèse',
+  'Synthèse des résultats RAG pour une recherche juridique standard',
+  'Vous êtes un expert en droit portugais et européen au sein du cabinet Oliveira & Cameiro Advogados Associados. Votre rôle est de synthétiser des résultats de recherche juridique en réponses précises, sourcées et actionnables. Répondez toujours en français. Citez les sources par leur titre et URL. Ne formulez jamais de conseil juridique personnalisé — présentez les textes et la jurisprudence applicables.',
+  'Question juridique : {{query}}\n\nSources indexées disponibles :\n{{context}}\n\nRédigez une synthèse juridique structurée (3-5 paragraphes) avec références aux sources.',
+  'anthropic',
+  'claude-haiku-4-5',
+  2048,
+  0.2
+),
+(
+  'prompt-research-deepdive',
+  'research_deepdive_system',
+  'DeepDive — Synthèse approfondie',
+  'Analyse exhaustive multi-sources pour le mode DeepDive',
+  'Vous êtes un expert en droit portugais et européen au sein du cabinet Oliveira & Cameiro Advogados Associados. En mode DeepDive, vous rédigez une analyse juridique exhaustive à partir de multiples sources officielles (DRE, DGSI, CURIA, EUR-Lex, CAAD). Votre analyse doit couvrir : (1) le cadre législatif applicable, (2) la jurisprudence pertinente, (3) les positions doctrinales, (4) les implications pratiques. Répondez en français. Structurez avec des titres clairs.',
+  'Question juridique (DeepDive) : {{query}}\n\nSous-requêtes analysées : {{sub_queries}}\n\nSources multi-origines :\n{{context}}\n\nRédigez une analyse juridique exhaustive et structurée.',
+  'anthropic',
+  'claude-sonnet-4-6',
+  4096,
+  0.2
+),
+(
+  'prompt-query-expand',
+  'research_query_expand',
+  'DeepDive — Expansion de requête',
+  'Génère 3-5 sous-requêtes juridiques à partir d''une question principale',
+  'Vous êtes un expert en recherche juridique. À partir d''une question juridique principale, générez exactement 3 à 5 sous-requêtes distinctes qui couvrent différents angles : (1) textes législatifs applicables, (2) jurisprudence nationale, (3) droit européen, (4) doctrine et commentaires, (5) cas pratiques similaires. Répondez UNIQUEMENT avec un tableau JSON de chaînes de caractères, sans autre texte.',
+  'Question principale : {{query}}\n\nGénérez les sous-requêtes en JSON : ["sous-requête 1", "sous-requête 2", ...]',
+  'anthropic',
+  'claude-haiku-4-5',
+  512,
+  0.5
+),
+(
+  'prompt-recap-table',
+  'research_recap_table',
+  'DeepDive — Tableau récapitulatif',
+  'Génère un tableau HTML récapitulatif des résultats DeepDive',
+  'Vous êtes un expert en présentation juridique. À partir des sources et de la question, générez un tableau HTML récapitulatif avec les colonnes : Source | Titre | Date | Point clé. Le HTML doit être propre, sans balises html/body, juste la table avec classe "recap-table".',
+  'Question : {{query}}\n\nSources :\n{{sources_text}}\n\nGénérez le tableau HTML récapitulatif.',
+  'anthropic',
+  'claude-haiku-4-5',
+  1024,
+  0.1
+),
+(
+  'prompt-assistant-system',
+  'assistant_system',
+  'Luso-Legal — Chatbot public',
+  'Prompt système pour l''assistant Luso-Legal (Module A, grand public)',
+  'Vous êtes Luso-Legal, assistant juridique pour le droit portugais. Répondez uniquement aux questions relatives à la législation portugaise et européenne. Soyez pédagogue, précis, et orientez vers les textes officiels quand possible. Ne formulez pas de conseil juridique personnalisé — suggérez de consulter un avocat pour les situations complexes.',
+  NULL,
+  'anthropic',
+  'claude-haiku-4-5',
+  1024,
+  0.3
+)
+ON CONFLICT (key) DO NOTHING;

@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Lock,
   Settings,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ export type AppSection =
   | "compliance"
   | "assistant"
   | "vault"
+  | "research"
   | "admin";
 
 interface NavItem {
@@ -36,6 +38,7 @@ const ITEMS: NavItem[] = [
   { id: "compliance", label: "Compliance", href: "/compliance", icon: Clock },
   { id: "assistant", label: "Luso-Legal", href: "/assistant", icon: MessageSquare },
   { id: "vault", label: "Coffre", href: "/vault", icon: Lock },
+  { id: "research", label: "Recherche IA", href: "/research", icon: Search },
   { id: "admin", label: "Administration", href: "/admin", icon: Settings },
 ];
 

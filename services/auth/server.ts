@@ -5,6 +5,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import cron from 'node-cron';
 import { initDb, run, get, all, closeDb } from './db';
 import { sendVerificationEmail } from './email';
 import { assertVaultConfig } from './storage/r2-client';
@@ -16,6 +17,17 @@ import {
   getDocumentByR2Key,
   VaultDocumentRow,
 } from './storage/vault';
+import { ensureCollections } from './rag-embeddings';
+import { standardSearch, deepDiveSearch } from './rag-search';
+import { streamResearch } from './rag-llm';
+import { runIncrementalIndex } from './rag-crawler';
+import { generateResearchPdf, storeResearchPdf } from './rag-pdf';
+import {
+  getPromptConfig,
+  invalidatePromptCache,
+  PROVIDER_MODELS,
+  LLMProvider,
+} from './rag-llm-router';
 
 // Load environment variables
 dotenv.config();
@@ -1932,6 +1944,359 @@ app.put('/api/admin/users/:id/role', authMiddleware, checkRole(['admin_cabinet']
   }
 });
 
+// GET /api/admin/stats
+app.get('/api/admin/stats', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const period = (req.query.period as string) || '30d';
+
+    let cutoff: string | null = null;
+    if (period === 'today') {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      cutoff = d.toISOString();
+    } else if (period === '7d') {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      cutoff = d.toISOString();
+    } else if (period === '30d') {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      cutoff = d.toISOString();
+    }
+    // 'all' => cutoff stays null
+
+    const whereDate = (col: string) => cutoff ? `AND ${col} >= '${cutoff}'` : '';
+
+    // Users
+    const [totalUsersRow, newUsersRow, verifiedRow] = await Promise.all([
+      get<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL'),
+      get<{ count: number }>(`SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL ${whereDate('created_at')}`),
+      get<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL AND is_verified = 1'),
+    ]);
+    const roleRows = await all<{ role: string; count: number }>(
+      'SELECT role, COUNT(*) as count FROM users WHERE deleted_at IS NULL GROUP BY role'
+    );
+    const byRole: Record<string, number> = {};
+    roleRows.forEach((r) => { byRole[r.role] = r.count; });
+
+    // NIF
+    const nifTotal = await get<{ count: number }>('SELECT COUNT(*) as count FROM dossiers_nif');
+    const nifNew = await get<{ count: number }>(`SELECT COUNT(*) as count FROM dossiers_nif WHERE 1=1 ${whereDate('created_at')}`);
+    const nifStatusRows = await all<{ status: string; count: number }>(
+      'SELECT status, COUNT(*) as count FROM dossiers_nif GROUP BY status'
+    );
+    const nifByStatus: Record<string, number> = {};
+    nifStatusRows.forEach((r) => { nifByStatus[r.status] = r.count; });
+    const nifObtenu = nifByStatus['NIF obtenu'] || 0;
+    const nifTotalCount = nifTotal?.count || 0;
+    const conversionRate = nifTotalCount > 0 ? Math.round((nifObtenu / nifTotalCount) * 100) : 0;
+
+    // Payments / Revenue
+    const paidRows = await all<{ amount: number; product: string }>(
+      `SELECT amount, product FROM payments WHERE status = 'paid' ${whereDate('created_at')}`
+    );
+    const pendingCount = await get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM payments WHERE status = 'pending' ${whereDate('created_at')}`
+    );
+    const totalRevenue = paidRows.reduce((s, r) => s + (r.amount || 0), 0);
+    const byProduct: Record<string, number> = {};
+    paidRows.forEach((r) => {
+      const k = r.product || 'other';
+      byProduct[k] = (byProduct[k] || 0) + (r.amount || 0);
+    });
+
+    // Contracts
+    const contractTotal = await get<{ count: number }>('SELECT COUNT(*) as count FROM contracts');
+    const contractNew = await get<{ count: number }>(`SELECT COUNT(*) as count FROM contracts WHERE 1=1 ${whereDate('created_at')}`);
+    const contractTypeRows = await all<{ type: string; count: number }>(
+      'SELECT type, COUNT(*) as count FROM contracts GROUP BY type'
+    );
+    const byType: Record<string, number> = {};
+    contractTypeRows.forEach((r) => { byType[r.type] = r.count; });
+
+    // Assistant
+    const msgTotal = await get<{ count: number }>(`SELECT COUNT(*) as count FROM assistant_messages WHERE 1=1 ${whereDate('created_at')}`);
+    const escalRows = await all<{ status: string; count: number }>(
+      'SELECT status, COUNT(*) as count FROM lawyer_escalations GROUP BY status'
+    );
+    const escalByStatus: Record<string, number> = {};
+    escalRows.forEach((r) => { escalByStatus[r.status] = r.count; });
+
+    // Compliance
+    const orangeDaySetting = await get<{ value: string }>(`SELECT value FROM system_settings WHERE key = 'compliance_orange_days'`);
+    const redDaySetting = await get<{ value: string }>(`SELECT value FROM system_settings WHERE key = 'compliance_red_days'`);
+    const orangeDays = parseInt(orangeDaySetting?.value || '90', 10);
+    const redDays = parseInt(redDaySetting?.value || '30', 10);
+    const now = new Date();
+    const complianceItems = await all<{ due_date: string; status: string }>('SELECT due_date, status FROM compliance_items');
+    let complianceGreen = 0, complianceOrange = 0, complianceRed = 0;
+    complianceItems.forEach((item) => {
+      if (item.status === 'completed') { complianceGreen++; return; }
+      const daysLeft = Math.ceil((new Date(item.due_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft <= redDays) complianceRed++;
+      else if (daysLeft <= orangeDays) complianceOrange++;
+      else complianceGreen++;
+    });
+
+    // Vault
+    const vaultTotal = await get<{ count: number }>(`SELECT COUNT(*) as count FROM vault_documents WHERE status != 'deleted'`);
+    const vaultSize = await get<{ total: number }>(`SELECT COALESCE(SUM(size_bytes), 0) as total FROM vault_documents WHERE status != 'deleted'`);
+
+    // Recent audit actions (last 10)
+    interface AuditRow { action: string; entity_type: string; ip_addr: string; timestamp: string; email: string | null }
+    const recentActions = await all<AuditRow>(
+      `SELECT a.action, a.entity_type, a.ip_addr, a.timestamp, u.email
+       FROM audit_log a
+       LEFT JOIN users u ON a.user_id = u.id
+       ORDER BY a.timestamp DESC
+       LIMIT 10`
+    );
+
+    res.status(200).json({
+      success: true,
+      period,
+      users: {
+        total: totalUsersRow?.count || 0,
+        new: newUsersRow?.count || 0,
+        verified: verifiedRow?.count || 0,
+        byRole,
+      },
+      nif: {
+        total: nifTotalCount,
+        new: nifNew?.count || 0,
+        byStatus: nifByStatus,
+        conversionRate,
+      },
+      payments: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        paidCount: paidRows.length,
+        pendingCount: pendingCount?.count || 0,
+        byProduct,
+      },
+      contracts: {
+        total: contractTotal?.count || 0,
+        new: contractNew?.count || 0,
+        byType,
+      },
+      assistant: {
+        totalMessages: msgTotal?.count || 0,
+        escalations: {
+          pending: escalByStatus['pending'] || 0,
+          assigned: escalByStatus['assigned'] || 0,
+          closed: escalByStatus['closed'] || 0,
+        },
+      },
+      compliance: {
+        green: complianceGreen,
+        orange: complianceOrange,
+        red: complianceRed,
+        total: complianceItems.length,
+      },
+      vault: {
+        totalDocuments: vaultTotal?.count || 0,
+        totalSizeBytes: vaultSize?.total || 0,
+      },
+      recentActions: recentActions.map((a) => ({
+        action: a.action,
+        entity_type: a.entity_type,
+        ip_addr: a.ip_addr,
+        timestamp: a.timestamp,
+        user_email: a.email || 'Système',
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Epic 9: Module B — Recherche Juridique IA ────────────────────────────────
+
+const RESEARCH_ROLES = ['avocat', 'avocat_junior', 'admin_cabinet'];
+
+// POST /api/research/query — SSE streaming, standard mode
+app.post('/api/research/query', authMiddleware, checkRole(RESEARCH_ROLES), async (req: Request, res: Response): Promise<void> => {
+  const { query } = req.body;
+  if (!query?.trim()) {
+    res.status(400).json({ success: false, message: 'query is required' });
+    return;
+  }
+  const userId = (req as any).user.id;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    const results = await standardSearch(query);
+    await streamResearch(query, results, res, 'standard', userId);
+  } catch (err: any) {
+    res.write('data: ' + JSON.stringify({ type: 'error', message: err?.message ?? 'Internal error' }) + '\n\n');
+  }
+  res.end();
+});
+
+// POST /api/research/deepdive — SSE streaming, DeepDive mode
+app.post('/api/research/deepdive', authMiddleware, checkRole(RESEARCH_ROLES), async (req: Request, res: Response): Promise<void> => {
+  const { query } = req.body;
+  if (!query?.trim()) {
+    res.status(400).json({ success: false, message: 'query is required' });
+    return;
+  }
+  const userId = (req as any).user.id;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    res.write('data: ' + JSON.stringify({ type: 'progress', step: 'expanding', pct: 10, label: 'Expansion des requêtes…' }) + '\n\n');
+    const { results, subQueries } = await deepDiveSearch(query);
+    res.write('data: ' + JSON.stringify({ type: 'progress', step: 'retrieved', pct: 50, label: 'Sources récupérées — synthèse en cours…', subQueries }) + '\n\n');
+    await streamResearch(query, results, res, 'deepdive', userId, subQueries);
+  } catch (err: any) {
+    res.write('data: ' + JSON.stringify({ type: 'error', message: err?.message ?? 'Internal error' }) + '\n\n');
+  }
+  res.end();
+});
+
+// GET /api/research/history
+app.get('/api/research/history', authMiddleware, checkRole(RESEARCH_ROLES), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.id;
+    const searches = await all<{ id: string; query: string; mode: string; summary: string | null; created_at: string }>(
+      'SELECT id, query, mode, summary, created_at FROM research_searches WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+      [userId],
+    );
+    res.json({ success: true, searches });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/research/:id
+app.get('/api/research/:id', authMiddleware, checkRole(RESEARCH_ROLES), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.id;
+    const row = await get<any>('SELECT * FROM research_searches WHERE id = ? AND user_id = ?', [req.params.id, userId]);
+    if (!row) { res.status(404).json({ success: false, message: 'Not found' }); return; }
+    const sources = row.sources_json ? JSON.parse(row.sources_json) : [];
+    res.json({ success: true, search: { ...row, sources } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/research/:id/export — generate PDF and store in vault
+app.post('/api/research/:id/export', authMiddleware, checkRole(RESEARCH_ROLES), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.id;
+    const userRow = await get<{ name: string | null; email: string }>('SELECT name, email FROM users WHERE id = ?', [userId]);
+    const searchRow = await get<any>('SELECT * FROM research_searches WHERE id = ? AND user_id = ?', [req.params.id, userId]);
+    if (!searchRow) { res.status(404).json({ success: false, message: 'Not found' }); return; }
+    if (searchRow.pdf_vault_id) {
+      res.json({ success: true, vaultId: searchRow.pdf_vault_id, message: 'PDF already generated' });
+      return;
+    }
+    const pdfBuffer = await generateResearchPdf(searchRow, userRow ?? { name: null, email: '' });
+    const searchId = req.params.id as string;
+    const vaultId = await storeResearchPdf(pdfBuffer, userId, searchId);
+    await run('UPDATE research_searches SET pdf_vault_id = ? WHERE id = ?', [vaultId, searchId]);
+    await logAudit(userId, 'EXPORT_RESEARCH_PDF', 'research_search', searchId, req);
+    res.json({ success: true, vaultId, message: 'PDF generated and stored in vault' });
+  } catch (err: any) {
+    console.error('Error exporting research PDF:', err);
+    res.status(500).json({ success: false, message: err?.message ?? 'Internal server error' });
+  }
+});
+
+// ─── Admin: LLM Prompts ───────────────────────────────────────────────────────
+
+// GET /api/admin/llm-prompts
+app.get('/api/admin/llm-prompts', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const prompts = await all('SELECT * FROM llm_prompts ORDER BY key');
+    res.json({ success: true, prompts, providerModels: PROVIDER_MODELS });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// PUT /api/admin/llm-prompts/:id
+app.put('/api/admin/llm-prompts/:id', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.id;
+    const { system_prompt, user_prompt_template, provider, model, max_tokens, temperature, name, description } = req.body;
+    if (!system_prompt?.trim()) { res.status(400).json({ success: false, message: 'system_prompt is required' }); return; }
+    const validProviders: LLMProvider[] = ['anthropic', 'openai', 'mistral', 'google'];
+    if (provider && !validProviders.includes(provider)) { res.status(400).json({ success: false, message: 'Invalid provider' }); return; }
+
+    const existing = await get<{ key: string }>('SELECT key FROM llm_prompts WHERE id = ?', [req.params.id]);
+    if (!existing) { res.status(404).json({ success: false, message: 'Prompt not found' }); return; }
+
+    await run(
+      `UPDATE llm_prompts SET
+        name = COALESCE(?, name),
+        description = COALESCE(?, description),
+        system_prompt = ?,
+        user_prompt_template = ?,
+        provider = COALESCE(?, provider),
+        model = COALESCE(?, model),
+        max_tokens = COALESCE(?, max_tokens),
+        temperature = COALESCE(?, temperature),
+        updated_at = ?,
+        updated_by = ?
+       WHERE id = ?`,
+      [name, description, system_prompt, user_prompt_template ?? null, provider, model,
+       max_tokens ?? null, temperature ?? null, new Date().toISOString(), userId, req.params.id],
+    );
+    invalidatePromptCache(existing.key);
+    res.json({ success: true, message: 'Prompt updated' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/llm-prompts/:id/test — test a prompt with sample variables
+app.post('/api/admin/llm-prompts/:id/test', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const row = await get<{ key: string }>('SELECT key FROM llm_prompts WHERE id = ?', [req.params.id]);
+    if (!row) { res.status(404).json({ success: false, message: 'Prompt not found' }); return; }
+    const variables: Record<string, string> = req.body.variables ?? {};
+    const { callPrompt: call } = await import('./rag-llm-router');
+    const result = await call(row.key, variables);
+    res.json({ success: true, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message ?? 'Internal server error' });
+  }
+});
+
+// ─── Admin: Indexing Management ───────────────────────────────────────────────
+
+// GET /api/admin/indexing/status
+app.get('/api/admin/indexing/status', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const runs = await all('SELECT * FROM indexing_runs ORDER BY started_at DESC LIMIT 20');
+    const docCounts = await all<{ source: string; count: number }>(
+      'SELECT source, COUNT(*) as count FROM legal_documents GROUP BY source',
+    );
+    res.json({ success: true, runs, docCounts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/indexing/trigger
+app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+  const { source } = req.body;
+  runIncrementalIndex(source).catch((err) =>
+    console.error('[MANUAL TRIGGER] Indexing error:', err?.message),
+  );
+  res.json({ success: true, message: `Indexing triggered for ${source ?? 'ALL'} sources` });
+});
+
 // Health check endpoint for Railway
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
@@ -1952,6 +2317,22 @@ if (process.env.NODE_ENV !== 'test') {
       app.listen(PORT, () => {
         console.log(`[AUTH SERVICE] Server is running on port ${PORT}`);
       });
+      // Epic 9: init Qdrant collections (non-fatal if Qdrant not available)
+      ensureCollections().catch((err) =>
+        console.warn('[RAG] Qdrant collection init skipped:', err?.message),
+      );
+      // Epic 9: daily incremental index at 04:00 Lisbon time
+      cron.schedule(
+        '0 4 * * *',
+        () => {
+          console.log('[CRON] Starting daily legal source index');
+          runIncrementalIndex().catch((err) =>
+            console.error('[CRON] Daily index failed:', err?.message),
+          );
+        },
+        { timezone: 'Europe/Lisbon' },
+      );
+      console.log('[CRON] Daily legal index scheduled at 04:00 Europe/Lisbon');
     })
     .catch((err) => {
       console.error('Failed to start server due to database initialization failure:', err);
