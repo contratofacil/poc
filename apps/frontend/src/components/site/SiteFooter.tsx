@@ -47,30 +47,30 @@ export function SiteFooter({ messages: t }: SiteFooterProps) {
         <div>
           <p className="font-medium mb-3">{t.footerColProducts}</p>
           <ul className="space-y-2 opacity-90">
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd1}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd2}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd3}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd4}</a></li>
+            <li><Link href="/nif" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd1}</Link></li>
+            <li><Link href="/contracts" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd2}</Link></li>
+            <li><Link href="/compliance" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd3}</Link></li>
+            <li><Link href="/assistant" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerProd4}</Link></li>
           </ul>
         </div>
 
         <div>
           <p className="font-medium mb-3">{t.footerColCompany}</p>
           <ul className="space-y-2 opacity-90">
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo1}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo2}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo3}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo4}</a></li>
+            <li><Link href="/about" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo1}</Link></li>
+            <li><Link href="/cabinet" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo2}</Link></li>
+            <li><Link href="/contact" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo3}</Link></li>
+            <li><Link href="/blog" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerCo4}</Link></li>
           </ul>
         </div>
 
         <div>
           <p className="font-medium mb-3">{t.footerColLegal}</p>
           <ul className="space-y-2 opacity-90">
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal1}</a></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal2}</a></li>
+            <li><Link href="/legal/terms" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal1}</Link></li>
+            <li><Link href="/legal/privacy" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal2}</Link></li>
             <li><Link href="/legal/cookies" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal3}</Link></li>
-            <li><a href="#" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal4}</a></li>
+            <li><Link href="/legal/mentions" className="hover:underline rounded-sm focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-on-gold)]">{t.footerLegal4}</Link></li>
             <li className="pt-1"><ConsentFooterLink className="!text-[var(--surface-page)] !opacity-90 hover:!text-[var(--surface-page)]" /></li>
           </ul>
         </div>

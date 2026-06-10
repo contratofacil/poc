@@ -1,13 +1,34 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useLogin } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Globe, Loader2 } from "lucide-react";
 import { useEasyLawAuth } from "@/lib/privy";
+import { useLanguage } from "@/lib/lang/useLanguage";
+import type { LandingLang } from "@/lib/landing/i18n";
 
-const translations = {
-  FR: {
+const translations: Record<LandingLang, {
+  heading: string;
+  subtitle: string;
+  cta: string;
+  legal: string;
+  cgu: string;
+  and: string;
+  privacy: string;
+  loading: string;
+}> = {
+  en: {
+    heading: "Access your legal workspace",
+    subtitle: "Sign up or sign in in seconds — email, Google, passkey…",
+    cta: "Continue",
+    legal: "By continuing, you agree to the",
+    cgu: "Terms of Service",
+    and: "and the",
+    privacy: "Privacy Policy",
+    loading: "Loading…",
+  },
+  fr: {
     heading: "Accédez à votre espace juridique",
     subtitle: "Inscription ou connexion en quelques secondes — email, Google, passkey…",
     cta: "Continuer",
@@ -17,7 +38,7 @@ const translations = {
     privacy: "Politique de confidentialité",
     loading: "Chargement…",
   },
-  PT: {
+  pt: {
     heading: "Aceda ao seu espaço jurídico",
     subtitle: "Registo ou início de sessão em segundos — email, Google, passkey…",
     cta: "Continuar",
@@ -29,11 +50,13 @@ const translations = {
   },
 };
 
+const LANG_CYCLE: LandingLang[] = ["en", "fr", "pt"];
+
 function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { authenticated, ready } = useEasyLawAuth();
-  const [lang, setLang] = useState<"FR" | "PT">("FR");
+  const [lang, setLang] = useLanguage();
   const t = translations[lang];
 
   const redirectTo = searchParams.get("redirect") || "/contracts";
@@ -44,11 +67,9 @@ function RegisterContent() {
     },
   });
 
-  useEffect(() => {
-    if (ready && authenticated) {
-      router.push(redirectTo);
-    }
-  }, [ready, authenticated, router, redirectTo]);
+  if (ready && authenticated) {
+    router.push(redirectTo);
+  }
 
   if (!ready) {
     return (
@@ -62,10 +83,15 @@ function RegisterContent() {
           aria-hidden="true"
         />
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-          {translations.FR.loading}
+          {t.loading}
         </p>
       </div>
     );
+  }
+
+  function cycleLang() {
+    const idx = LANG_CYCLE.indexOf(lang);
+    setLang(LANG_CYCLE[(idx + 1) % LANG_CYCLE.length]);
   }
 
   return (
@@ -88,7 +114,7 @@ function RegisterContent() {
         className="w-full max-w-lg rounded-2xl p-8 relative z-10 text-center shadow-[var(--shadow-modal)] border"
         style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
       >
-        {/* Logo + lang toggle */}
+        {/* Logo + lang cycle */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2" style={{ color: "var(--brand-primary)" }}>
             <Shield className="w-7 h-7" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
@@ -97,12 +123,13 @@ function RegisterContent() {
             </span>
           </div>
           <button
-            onClick={() => setLang(lang === "FR" ? "PT" : "FR")}
+            onClick={cycleLang}
             className="flex items-center gap-1.5 text-xs transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-primary)]/45 rounded"
             style={{ color: "var(--text-secondary)" }}
+            aria-label="Switch language"
           >
             <Globe className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{lang === "FR" ? "PT" : "FR"}</span>
+            <span>{lang.toUpperCase()}</span>
           </button>
         </div>
 
@@ -127,7 +154,7 @@ function RegisterContent() {
         <p className="mt-6 text-xs" style={{ color: "var(--text-muted)" }}>
           {t.legal}{" "}
           <a
-            href="https://easylaw.pt/cgu"
+            href="/legal/terms"
             className="underline transition hover:opacity-80"
             style={{ color: "var(--brand-primary)" }}
           >
@@ -135,7 +162,7 @@ function RegisterContent() {
           </a>
           {" "}{t.and}{" "}
           <a
-            href="https://easylaw.pt/privacy"
+            href="/legal/privacy"
             className="underline transition hover:opacity-80"
             style={{ color: "var(--brand-primary)" }}
           >
@@ -161,7 +188,7 @@ export default function RegisterPage() {
             aria-hidden="true"
           />
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Chargement…
+            Loading…
           </p>
         </div>
       }

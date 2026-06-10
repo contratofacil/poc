@@ -45,8 +45,8 @@ export const privyConfig: PrivyClientConfig = {
 
   /* ── Legal / compliance ──────────────────────────────────────────────── */
   legal: {
-    termsAndConditionsUrl: "https://easylaw.pt/cgu",
-    privacyPolicyUrl: "https://easylaw.pt/privacy",
+    termsAndConditionsUrl: "/legal/terms",
+    privacyPolicyUrl: "/legal/privacy",
   },
 
   /* ── MFA (lawyers + cabinet admins) ─────────────────────────────────── */

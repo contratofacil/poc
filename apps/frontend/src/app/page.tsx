@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Award,
   Check,
+  ChevronDown,
   Clock,
   Edit2,
   FileText,
@@ -14,29 +15,36 @@ import {
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { TrustBar } from "@/components/ui/TrustBar";
-import { getLandingMessages, type LandingLang } from "@/lib/landing/i18n";
+import { getLandingMessages } from "@/lib/landing/i18n";
+import { useLanguage } from "@/lib/lang/useLanguage";
 
-/**
- * Landing publique `/` (P2).
- *
- * Client component pour i18n FR + PT inline. Server-render PT par défaut
- * (html.lang="pt") puis substitue FR si lang === "fr" post-mount.
- * Pas de CLS notable — le layout est identique entre langues, seul le texte change.
- */
 export default function Home() {
-  const [lang, setLang] = React.useState<LandingLang>("pt");
-
-  React.useEffect(() => {
-    const detected = (document.documentElement.lang || "pt").toLowerCase().slice(0, 2);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture d'état DOM read-only au mount (pattern aligné avec ConsentBanner P4)
-    if (detected === "fr") setLang("fr");
-  }, []);
-
+  const [lang, setLang] = useLanguage();
   const t = getLandingMessages(lang);
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      { "@type": "Question", name: t.faq1Q, acceptedAnswer: { "@type": "Answer", text: t.faq1A } },
+      { "@type": "Question", name: t.faq2Q, acceptedAnswer: { "@type": "Answer", text: t.faq2A } },
+      { "@type": "Question", name: t.faq3Q, acceptedAnswer: { "@type": "Answer", text: t.faq3A } },
+      { "@type": "Question", name: t.faq4Q, acceptedAnswer: { "@type": "Answer", text: t.faq4A } },
+      { "@type": "Question", name: t.faq5Q, acceptedAnswer: { "@type": "Answer", text: t.faq5A } },
+      { "@type": "Question", name: t.faq6Q, acceptedAnswer: { "@type": "Answer", text: t.faq6A } },
+      { "@type": "Question", name: t.faq7Q, acceptedAnswer: { "@type": "Answer", text: t.faq7A } },
+      { "@type": "Question", name: t.faq8Q, acceptedAnswer: { "@type": "Answer", text: t.faq8A } },
+    ],
+  };
 
   return (
     <>
-      <SiteHeader messages={t} langCode={lang} />
+      <SiteHeader messages={t} lang={lang} onLangChange={setLang} />
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
 
       <main id="main" className="flex-1">
         {/* ─── HERO ──────────────────────────────────────────────────── */}
@@ -161,6 +169,43 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ─── STATS ─────────────────────────────────────────────────── */}
+        <section
+          aria-label={t.statsTitle}
+          className="border-t border-[var(--surface-mist)]"
+          style={{ background: "var(--brand-primary)" }}
+        >
+          <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
+            <p className="text-center text-xs uppercase tracking-wider mb-2 opacity-60 text-white">
+              {t.statsEyebrow}
+            </p>
+            <h2
+              className="text-center text-2xl md:text-3xl mb-12 text-white"
+              style={{ fontFamily: "var(--font-serif)" }}
+            >
+              {t.statsTitle}
+            </h2>
+            <dl className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+              {([
+                [t.stat1Value, t.stat1Label],
+                [t.stat2Value, t.stat2Label],
+                [t.stat3Value, t.stat3Label],
+                [t.stat4Value, t.stat4Label],
+              ] as [string, string][]).map(([value, label]) => (
+                <div key={value}>
+                  <dt
+                    className="text-4xl md:text-5xl font-bold mb-2"
+                    style={{ color: "var(--brand-secondary)", fontFamily: "var(--font-serif)" }}
+                  >
+                    {value}
+                  </dt>
+                  <dd className="text-sm text-white opacity-75 leading-snug">{label}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
         {/* ─── HOW IT WORKS ──────────────────────────────────────────── */}
         <section
           id="how"
@@ -250,6 +295,43 @@ export default function Home() {
                 </div>
               </footer>
             </blockquote>
+          </div>
+        </section>
+
+        {/* ─── FAQ ───────────────────────────────────────────────────── */}
+        <section
+          id="faq"
+          className="border-t border-[var(--surface-mist)] bg-white"
+          aria-labelledby="faq-heading"
+        >
+          <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+            <div className="max-w-2xl mx-auto text-center mb-14">
+              <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                {t.faqEyebrow}
+              </p>
+              <h2
+                id="faq-heading"
+                className="text-3xl md:text-4xl mb-4"
+                style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}
+              >
+                {t.faqTitle}
+              </h2>
+              <p className="text-[var(--text-secondary)] text-lg">{t.faqSubtitle}</p>
+            </div>
+            <dl className="max-w-3xl mx-auto divide-y divide-[var(--surface-mist)]">
+              {([
+                [t.faq1Q, t.faq1A],
+                [t.faq2Q, t.faq2A],
+                [t.faq3Q, t.faq3A],
+                [t.faq4Q, t.faq4A],
+                [t.faq5Q, t.faq5A],
+                [t.faq6Q, t.faq6A],
+                [t.faq7Q, t.faq7A],
+                [t.faq8Q, t.faq8A],
+              ] as [string, string][]).map(([q, a]) => (
+                <FaqItem key={q} question={q} answer={a} />
+              ))}
+            </dl>
           </div>
         </section>
 
@@ -347,6 +429,32 @@ function Step({ n, title, body }: { n: string; title: string; body: string }) {
       </h3>
       <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{body}</p>
     </li>
+  );
+}
+
+function FaqItem({ question, answer }: { question: string; answer: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div>
+      <dt>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-4 py-5 text-left text-base font-medium text-[var(--text-primary)] hover:text-[var(--brand-primary)] transition-colors focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+        >
+          <span>{question}</span>
+          <ChevronDown
+            className="h-5 w-5 flex-shrink-0 text-[var(--text-muted)] transition-transform"
+            style={{ transform: open ? "rotate(180deg)" : "none" }}
+            aria-hidden="true"
+          />
+        </button>
+      </dt>
+      {open && (
+        <dd className="pb-5 text-sm text-[var(--text-secondary)] leading-relaxed">{answer}</dd>
+      )}
+    </div>
   );
 }
 

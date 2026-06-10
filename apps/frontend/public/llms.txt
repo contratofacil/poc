@@ -1,0 +1,82 @@
+# EasyLaw — Plateforme juridique intelligente pour le Portugal
+
+> EasyLaw démocratise le droit portugais en combinant des outils automatisés avec la supervision d'un cabinet d'avocats agréé.
+
+## Qu'est-ce qu'EasyLaw ?
+
+EasyLaw est une plateforme juridique tout-en-un dédiée au droit portugais. Elle permet aux expatriés, freelances et PME d'obtenir leur NIF, de générer des contrats conformes, de piloter leurs obligations de conformité et de consulter un assistant IA juridique — le tout supervisé par le cabinet Oliveira & Carneiro Advogados, inscrit à l'Ordem dos Advogados.
+
+**Marché principal** : Portugal (droit fiscal, commercial et migratoire)
+**Langues** : Français et Portugais
+**Supervision légale** : Oliveira & Carneiro Advogados (15 ans d'expérience)
+**Sécurité** : TLS 1.3 en transit, AES-256 au repos, conforme RGPD/CNPD
+
+---
+
+## Produits et tarifs
+
+### NIF & Starter Pack — 99 € (paiement unique)
+Obtention du Numéro de Identification Fiscal (NIF) portugais en 48h ouvrées. Inclut : procuration générée automatiquement, dépôt auprès des Finanças par le cabinet partenaire, notification par email. Option bancaire disponible.
+
+### Générateur de contrats — 49 € par contrat
+Cinq modèles conformes au droit portugais :
+- Bail d'habitation (NRAU)
+- Contrat de prestation de services
+- Contrat de travail CDD/CDI
+- Statuts de société Lda
+- Procuration (Procuração)
+
+Génération en temps réel avec prévisualisation PDF. Mis à jour selon la législation en vigueur.
+
+### Compliance Dashboard — 29 €/mois
+Surveillance automatique des obligations légales PME. Indicateurs couleur : VERT (à jour), ORANGE (90 jours), ROUGE (30 jours ou en retard). Alertes email + SMS automatiques.
+
+### Luso-Legal — IA juridique — 19 €/mois
+Assistant IA disponible 24h/24, spécialisé en droit portugais (jurisprudence DRE/DGSI). 10 questions par mois incluses. Escalade automatique vers un avocat humain pour les cas complexes. Ne remplace pas un conseil juridique personnalisé.
+
+---
+
+## Public cible
+
+- Expatriés installés ou souhaitant s'installer au Portugal
+- Freelances et indépendants
+- Petites et moyennes entreprises (PME)
+- Investisseurs immobiliers étrangers
+- Non-résidents ayant besoin d'un NIF portugais
+
+---
+
+## Partenaire juridique
+
+**Oliveira & Carneiro Advogados**
+- Inscrit à l'Ordem dos Advogados (Cédula Profissional disponible sur demande)
+- 15 ans d'expérience en droit migratoire et commercial portugais
+- Secret professionnel garanti sur tous les dossiers
+- Supervision de chaque dossier NIF, contrat et compliance
+
+---
+
+## Pages clés
+
+- Accueil et présentation : https://frontend-production-167a.up.railway.app/
+- Obtenir son NIF : https://frontend-production-167a.up.railway.app/nif
+- Générateur de contrats : https://frontend-production-167a.up.railway.app/contracts
+- Compliance Dashboard : https://frontend-production-167a.up.railway.app/compliance
+- Assistant Luso-Legal : https://frontend-production-167a.up.railway.app/assistant
+- Créer un compte : https://frontend-production-167a.up.railway.app/register
+- Se connecter : https://frontend-production-167a.up.railway.app/login
+
+---
+
+## Certifications et conformité
+
+- Conforme RGPD (Règlement Général sur la Protection des Données)
+- Conforme CNPD (Commission Nationale de Protection des Données — Portugal)
+- Chiffrement TLS 1.3 pour toutes les communications
+- Stockage chiffré AES-256 pour tous les documents
+- Supervision par un avocat inscrit à l'Ordem dos Advogados
+- Aucune donnée partagée avec des tiers sans consentement explicite
+
+---
+
+*EasyLaw est une plateforme technologique. Les actes juridiques sont supervisés par Oliveira & Carneiro Advogados (Ordem dos Advogados). Les informations fournies ne constituent pas des conseils juridiques personnalisés.*

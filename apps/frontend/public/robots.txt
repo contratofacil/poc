@@ -1,0 +1,33 @@
+User-agent: *
+Allow: /
+
+# AI search and citation bots — explicitly allowed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+# Common crawl training — disallowed (citation bots above remain allowed)
+User-agent: CCBot
+Disallow: /
+
+Sitemap: https://frontend-production-167a.up.railway.app/sitemap.xml

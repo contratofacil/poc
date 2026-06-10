@@ -73,7 +73,7 @@ function LoginContent() {
         <p className="mt-6 text-xs" style={{ color: "var(--text-muted)" }}>
           En continuant, vous acceptez les{" "}
           <a
-            href="https://easylaw.pt/cgu"
+            href="/legal/terms"
             className="underline transition hover:opacity-80 focus-visible:outline-none"
             style={{ color: "var(--brand-primary)" }}
           >
@@ -81,7 +81,7 @@ function LoginContent() {
           </a>
           {" "}et la{" "}
           <a
-            href="https://easylaw.pt/privacy"
+            href="/legal/privacy"
             className="underline transition hover:opacity-80 focus-visible:outline-none"
             style={{ color: "var(--brand-primary)" }}
           >
