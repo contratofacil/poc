@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>ContratoFácil — Mindmap Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e8eaf0;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  #app {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  #toolbar h1 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e8eaf0;
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: rgba(255,255,255,0.5);
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  #canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+  }
+  #canvas-wrap:active { cursor: grabbing; }
+  svg#mm {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+  }
+  .node { cursor: pointer; }
+  .node circle { transition: r 0.15s, filter 0.15s; }
+  .node:hover circle { filter: brightness(1.25); }
+  .node text { pointer-events: none; user-select: none; }
+  .link { fill: none; stroke-linecap: round; }
+  .detail-panel {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    width: 280px;
+    background: rgba(20,22,32,0.95);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(16px);
+    transition: opacity 0.2s, transform 0.2s;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+  }
+  .detail-panel.visible {
+    opacity: 1; transform: translateY(0); pointer-events: auto;
+  }
+  .detail-panel h3 {
+    font-size: 14px; font-weight: 700; margin-bottom: 8px;
+  }
+  .detail-panel p {
+    font-size: 11.5px; color: rgba(255,255,255,0.6);
+    line-height: 1.6; margin-bottom: 8px;
+  }
+  .detail-panel ul {
+    list-style: none; padding: 0;
+  }
+  .detail-panel li {
+    font-size: 11px; color: rgba(255,255,255,0.5);
+    padding: 2px 0; padding-left: 12px; position: relative;
+  }
+  .detail-panel li::before {
+    content: '›';
+    position: absolute; left: 0;
+    color: rgba(255,255,255,0.3);
+  }
+  .tag {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 4px; font-size: 10px; font-weight: 600;
+    margin-right: 4px; margin-bottom: 4px;
+  }
+  .close-btn {
+    position: absolute; top: 10px; right: 12px;
+    background: none; border: none;
+    color: rgba(255,255,255,0.4); cursor: pointer;
+    font-size: 16px; line-height: 1;
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .close-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+  #hint {
+    position: absolute; bottom: 16px; left: 16px;
+    font-size: 11px; color: rgba(255,255,255,0.25);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <h1>ContratoFácil — Architecture Fonctionnelle</h1>
+    <div style="flex:1"></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#6C8EF0"></div>Frontend</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#52C97B"></div>Backend</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E07B4A"></div>Intégration</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#B86CE8"></div>Sécurité</div>
+  </div>
+  <div id="canvas-wrap">
+    <svg id="mm" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="hint">Cliquer sur un nœud · Glisser pour déplacer · Scroll pour zoomer</div>
+  </div>
+  <div class="detail-panel" id="detail">
+    <button class="close-btn" onclick="closeDetail()">×</button>
+    <h3 id="d-title"></h3>
+    <p id="d-desc"></p>
+    <div id="d-tags"></div>
+    <ul id="d-list"></ul>
+  </div>
+</div>
+
+<script>
+const W = () => document.getElementById('canvas-wrap').clientWidth;
+const H = () => document.getElementById('canvas-wrap').clientHeight;
+
+const palette = {
+  auth:    { fill: '#B86CE8', stroke: '#9B55C9', light: 'rgba(184,108,232,0.15)' },
+  nif:     { fill: '#E07B4A', stroke: '#C7663A', light: 'rgba(224,123,74,0.15)' },
+  contracts:{ fill: '#6C8EF0', stroke: '#4D70D9', light: 'rgba(108,142,240,0.15)' },
+  vault:   { fill: '#52C97B', stroke: '#3DAF63', light: 'rgba(82,201,123,0.15)' },
+  compliance:{ fill: '#F0C23C', stroke: '#D9A820', light: 'rgba(240,194,60,0.15)' },
+  assistant:{ fill: '#F07080', stroke: '#D95565', light: 'rgba(240,112,128,0.15)' },
+  admin:   { fill: '#78C8C8', stroke: '#5AAFAF', light: 'rgba(120,200,200,0.15)' },
+  infra:   { fill: '#A8A8C0', stroke: '#8888A8', light: 'rgba(168,168,192,0.15)' },
+  center:  { fill: '#FFFFFF', stroke: '#DDDDDD', light: 'rgba(255,255,255,0.08)' },
+};
+
+const DATA = {
+  id: 'root', label: 'ContratoFácil', type: 'center',
+  desc: 'Plateforme LegalTech Portugal — POC monorepo (Next.js 16 + Express 5)',
+  tags: ['Next.js 16','Express 5','TypeScript 6','Node.js 24'],
+  items: ['Monorepo npm workspaces','Stack fullstack TypeScript','Droit portugais & européen','MVP T3 2026'],
+  children: [
+    {
+      id: 'auth', label: 'Auth', type: 'auth',
+      desc: 'Authentification multi-méthode avec JWT + Privy.io (wallets, passkeys, social, DID)',
+      tags: ['JWT 24h','RBAC 4 rôles','Privy.io'],
+      items: ['register / login / profile','Email verification','Soft delete (RGPD)','Roles: client, admin_cabinet, avocat, avocat_junior','Export données RGPD'],
+      children: [
+        { id: 'auth-jwt', label: 'JWT', type:'auth', desc:'Tokens JWT, expiry 24h, bcryptjs pour les mots de passe.', tags:['bcryptjs','HS256'], items:['Middleware authMiddleware','Validation Zod','Min 8 chars + chiffre'] },
+        { id: 'auth-privy', label: 'Privy.io', type:'auth', desc:'Auth multi-canal: email OTP, SMS, passkeys, Google, LinkedIn, wallets Ethereum/Solana.', tags:['OAuth','Passkeys','DID'], items:['Embedded wallets','MFA configurable','DID identity'] },
+      ]
+    },
+    {
+      id: 'nif', label: 'NIF Pack', type: 'nif',
+      desc: 'Dossier d\'obtention du NIF portugais (Tax ID) en 4 étapes avec paiement Stripe.',
+      tags: ['Stripe','4 étapes','Upload'],
+      items: ['Formulaire infos personnelles','Upload passeport + justificatif','Procuration PDF générée','Paiement Stripe + webhook','Suivi statut avec timeline'],
+      children: [
+        { id: 'nif-form', label: 'Formulaire', type:'nif', desc:'4 étapes: identité → documents → procuration → paiement.', tags:['react-hook-form','Zod'], items:['fullname, birthdate, nationality','passport_path, proof_of_address','Validation côté client + serveur'] },
+        { id: 'nif-pay', label: 'Paiement', type:'nif', desc:'Stripe Payment Intent + webhook pour confirmation.', tags:['Stripe','Webhook'], items:['POST /api/nif/payment','POST /api/nif/payment/webhook','statut: pending → paid'] },
+      ]
+    },
+    {
+      id: 'contracts', label: 'Contrats', type: 'contracts',
+      desc: 'Catalogue de modèles de contrats + assistant wizard de génération PDF.',
+      tags: ['5 templates','PDF gen','R2 Storage'],
+      items: ['Templates: Bail, Travail, etc.','Wizard multi-étapes','Génération PDF','Stockage R2 (chiffré)','Clauses versionnées en base'],
+      children: [
+        { id: 'contracts-cat', label: 'Catalogue', type:'contracts', desc:'Templates filtrés depuis la table clause_versions.', tags:['GET /api/contracts/templates'], items:['Bail résidentiel','Contrat de travail','SaaS, CDD, etc.'] },
+        { id: 'contracts-gen', label: 'Génération', type:'contracts', desc:'Wizard remplit le template avec les réponses utilisateur, génère un PDF.', tags:['POST /api/contracts/generate'], items:['Validation Zod réponses','PDF uploadé sur R2','Aperçu via URL présignée'] },
+      ]
+    },
+    {
+      id: 'vault', label: 'Coffre', type: 'vault',
+      desc: 'Stockage sécurisé de documents avec chiffrement AES-256-GCM envelope (DEK + KEK).',
+      tags: ['AES-256-GCM','Cloudflare R2','Audit log'],
+      items: ['Upload via URL présignée R2','DEK chiffrée par master KEK','SHA-256 intégrité fichier','Téléchargement déchiffré à la volée','Log d\'audit horodaté'],
+      children: [
+        { id: 'vault-enc', label: 'Chiffrement', type:'vault', desc:'Envelope encryption: DEK aléatoire par fichier, chiffré avec KEK (env var).', tags:['Node crypto','AES-GCM'], items:['IV 12 bytes aléatoire','Auth tag 16 bytes','VAULT_KEK_B64 (env)'] },
+        { id: 'vault-r2', label: 'Cloudflare R2', type:'vault', desc:'Stockage objet S3-compatible, juridiction EU, URLs présignées PUT/GET.', tags:['EU jurisdiction','S3 API'], items:['r2-client.ts (AWS SDK v3)','Fallback local (POC)','Metadata: mime_type, size'] },
+      ]
+    },
+    {
+      id: 'compliance', label: 'Compliance', type: 'compliance',
+      desc: 'Dashboard de suivi des obligations légales avec alertes email et filtrage par statut.',
+      tags: ['CRUD','Alertes email','eIDV'],
+      items: ['Créer / modifier / supprimer obligation','Statuts: pending, prepared, completed','Seuils: orange @90j, rouge @30j','Simulation alertes SendGrid','Sélecteur fournisseur eIDV'],
+      children: [
+        { id: 'comp-items', label: 'Obligations', type:'compliance', desc:'Table compliance_items: title, due_date, status, category, user_id.', tags:['GET/POST/PUT/DELETE'], items:['Compteurs par statut','Filtre par catégorie','Vue détail + édition inline'] },
+        { id: 'comp-alerts', label: 'Alertes', type:'compliance', desc:'Logs d\'envoi email + simulation d\'alertes (mock SendGrid en POC).', tags:['SendGrid','alert_logs'], items:['GET /api/compliance/alert-logs','POST /api/compliance/simulate-alerts','Seuils configurables via Admin'] },
+      ]
+    },
+    {
+      id: 'assistant', label: 'Assistant IA', type: 'assistant',
+      desc: 'Chatbot Luso-Legal: Q&A droit portugais/européen, garde-fous hors-sujet, escalade avocat.',
+      tags: ['IA juridique','PT/FR','Escalade'],
+      items: ['Guardrail in-scope (hors-sujet rejeté)','Sources légales + références articles','Historique conversation persisté','Escalade vers avocat humain','SLA réponse < 3 secondes'],
+      children: [
+        { id: 'assist-chat', label: 'Chat', type:'assistant', desc:'POST /api/assistant/chat — validation sujet, réponse simulée avec articles de loi.', tags:['POST /api/assistant/chat'], items:['in-scope guardrail','assistant_messages table','Historique via GET /history'] },
+        { id: 'assist-esc', label: 'Escalade', type:'assistant', desc:'Crée une ligne dans lawyer_escalations avec résumé + avocat assigné.', tags:['POST /api/assistant/escalate'], items:['conversation_summary','assigned_lawyer_id','Rôle: avocat / avocat_junior'] },
+      ]
+    },
+    {
+      id: 'admin', label: 'Admin', type: 'admin',
+      desc: 'Panneau de gestion réservé au rôle admin_cabinet: users, clauses, settings, IA.',
+      tags: ['admin_cabinet','RBAC','Settings'],
+      items: ['Gestion utilisateurs + rôles','Bibliothèque de clauses contrats','Seuils alertes compliance (orange/rouge)','Prompt système IA éditables','Invitations email'],
+      children: [
+        { id: 'admin-users', label: 'Utilisateurs', type:'admin', desc:'Vue complète users + PUT /api/admin/users/:id/role pour changer le rôle.', tags:['GET /api/admin/users'], items:['4 rôles RBAC','POST /api/auth/invite','Soft delete (deleted_at)'] },
+        { id: 'admin-clauses', label: 'Clauses', type:'admin', desc:'CRUD bibliothèque de clauses par type de contrat, versionnées.', tags:['clause_versions'], items:['clause_key, content','loi_reference','valid_from / valid_to'] },
+      ]
+    },
+    {
+      id: 'infra', label: 'Infrastructure', type: 'infra',
+      desc: 'Stack technique: monorepo, dual BDD (SQLite/PG), TypeScript strict, tests Jest + Playwright.',
+      tags: ['SQLite/PG','Jest','Playwright'],
+      items: ['npm workspaces monorepo','Dual DB: SQLite (dev) / PostgreSQL (prod)','db.ts abstraction layer','Migrations idempotentes (ALTER TABLE)','Tests: Jest + Playwright E2E'],
+      children: [
+        { id: 'infra-db', label: 'Base de données', type:'infra', desc:'10 tables SQLite/PG avec migrations. Abstraction db.ts pour dual support.', tags:['SQLite','PostgreSQL'], items:['users, dossiers_nif, payments','contracts, vault_documents','audit_log, compliance_items'] },
+        { id: 'infra-ext', label: 'Services ext.', type:'infra', desc:'Stripe (paiements), Cloudflare R2 (stockage), SendGrid (emails), Privy (auth).', tags:['Stripe','SendGrid','R2'], items:['MB Way (Phase 2)','eIDAS CMD (Phase 2)','Solana / wallets (futur)'] },
+      ]
+    },
+  ]
+};
+
+let transform = { x: 0, y: 0, scale: 1 };
+let drag = { active: false, sx: 0, sy: 0, tx: 0, ty: 0 };
+
+const svg = document.getElementById('mm');
+const ns = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs={}, parent=null) {
+  const e = document.createElementNS(ns, tag);
+  Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+  if(parent) parent.appendChild(e);
+  return e;
+}
+
+function getNodePositions() {
+  const cx = W()/2, cy = H()/2;
+  const MAIN_R = Math.min(W(), H()) * 0.3;
+  const CHILD_R = Math.min(W(), H()) * 0.13;
+  const positions = {};
+  positions['root'] = { x: cx, y: cy };
+
+  const children = DATA.children;
+  children.forEach((child, i) => {
+    const angle = (i / children.length) * Math.PI * 2 - Math.PI/2;
+    const mx = cx + Math.cos(angle) * MAIN_R;
+    const my = cy + Math.sin(angle) * MAIN_R;
+    positions[child.id] = { x: mx, y: my };
+    if (child.children) {
+      child.children.forEach((gc, j) => {
+        const spread = 0.35;
+        const childAngle = angle + (j === 0 ? -spread : spread);
+        const gx = mx + Math.cos(childAngle) * CHILD_R;
+        const gy = my + Math.sin(childAngle) * CHILD_R;
+        positions[gc.id] = { x: gx, y: gy };
+      });
+    }
+  });
+  return positions;
+}
+
+function renderMindmap() {
+  svg.innerHTML = '';
+  const pos = getNodePositions();
+  const g = el('g', { id: 'root-g' }, svg);
+  g.setAttribute('transform', `translate(${transform.x},${transform.y}) scale(${transform.scale})`);
+
+  const linksG = el('g', { id: 'links' }, g);
+  const nodesG = el('g', { id: 'nodes' }, g);
+
+  function drawLink(fromId, toId, color, width=1.5) {
+    const a = pos[fromId], b = pos[toId];
+    if(!a||!b) return;
+    const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+    el('path', {
+      d: `M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}`,
+      class: 'link',
+      stroke: color,
+      'stroke-width': width,
+      opacity: 0.35,
+    }, linksG);
+  }
+
+  function drawNode(nodeData, parentId=null, level=0) {
+    const p = pos[nodeData.id];
+    if(!p) return;
+    const pal = palette[nodeData.type] || palette.center;
+    const r = level === 0 ? 40 : level === 1 ? 26 : 18;
+    const fontSize = level === 0 ? 12 : level === 1 ? 10 : 9;
+
+    if(parentId) drawLink(parentId, nodeData.id, pal.fill, level===1?2:1.5);
+
+    const nodeG = el('g', { class:'node', 'data-id': nodeData.id }, nodesG);
+
+    el('circle', { cx: p.x, cy: p.y, r: r+8, fill: pal.light }, nodeG);
+    el('circle', {
+      cx: p.x, cy: p.y, r: r,
+      fill: level===0 ? '#fff' : pal.fill,
+      stroke: level===0 ? '#ddd' : pal.stroke,
+      'stroke-width': level===0 ? 3 : 2,
+    }, nodeG);
+
+    const label = nodeData.label;
+    const lines = label.split(' ');
+    if(lines.length === 1) {
+      el('text', {
+        x: p.x, y: p.y + fontSize*0.4,
+        'text-anchor':'middle',
+        'font-size': fontSize,
+        'font-weight': level<=1 ? '700':'600',
+        fill: level===0 ? '#111':'#fff',
+      }, nodeG).textContent = label;
+    } else {
+      lines.forEach((l,i) => {
+        el('text', {
+          x: p.x, y: p.y + fontSize*0.4 + (i - (lines.length-1)/2)*fontSize*1.2,
+          'text-anchor':'middle',
+          'font-size': fontSize,
+          'font-weight': level<=1 ? '700':'600',
+          fill: level===0 ? '#111':'#fff',
+        }, nodeG).textContent = l;
+      });
+    }
+
+    nodeG.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showDetail(nodeData, pal);
+    });
+
+    if(nodeData.children) {
+      nodeData.children.forEach(child => drawNode(child, nodeData.id, level+1));
+    }
+  }
+
+  drawNode(DATA, null, 0);
+  DATA.children.forEach(c => drawNode(c, 'root', 1));
+}
+
+function showDetail(node, pal) {
+  const panel = document.getElementById('detail');
+  document.getElementById('d-title').textContent = node.label;
+  document.getElementById('d-title').style.color = pal.fill;
+  document.getElementById('d-desc').textContent = node.desc || '';
+  const tagsEl = document.getElementById('d-tags');
+  tagsEl.innerHTML = '';
+  (node.tags||[]).forEach(t => {
+    const span = document.createElement('span');
+    span.className = 'tag';
+    span.style.background = pal.light;
+    span.style.color = pal.fill;
+    span.style.border = `1px solid ${pal.fill}40`;
+    span.textContent = t;
+    tagsEl.appendChild(span);
+  });
+  const listEl = document.getElementById('d-list');
+  listEl.innerHTML = '';
+  (node.items||[]).forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    listEl.appendChild(li);
+  });
+  panel.classList.add('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detail').classList.remove('visible');
+}
+
+const wrap = document.getElementById('canvas-wrap');
+
+wrap.addEventListener('mousedown', e => {
+  drag.active = true;
+  drag.sx = e.clientX;
+  drag.sy = e.clientY;
+  drag.tx = transform.x;
+  drag.ty = transform.y;
+});
+window.addEventListener('mouseup', () => drag.active = false);
+window.addEventListener('mousemove', e => {
+  if(!drag.active) return;
+  transform.x = drag.tx + (e.clientX - drag.sx);
+  transform.y = drag.ty + (e.clientY - drag.sy);
+  document.getElementById('root-g').setAttribute('transform',
+    `translate(${transform.x},${transform.y}) scale(${transform.scale})`);
+});
+
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const rect = wrap.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  transform.x = mx + (transform.x - mx) * delta;
+  transform.y = my + (transform.y - my) * delta;
+  transform.scale *= delta;
+  transform.scale = Math.max(0.3, Math.min(2.5, transform.scale));
+  document.getElementById('root-g').setAttribute('transform',
+    `translate(${transform.x},${transform.y}) scale(${transform.scale})`);
+}, { passive: false });
+
+svg.addEventListener('click', e => {
+  if(e.target === svg || e.target.id === 'mm') closeDetail();
+});
+
+renderMindmap();
+window.addEventListener('resize', renderMindmap);
+</script>
+</body>
+</html>
