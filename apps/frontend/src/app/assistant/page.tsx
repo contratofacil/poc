@@ -100,6 +100,7 @@ function AssistantPageContent() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const modalCancelRef = useRef<HTMLButtonElement | null>(null);
   const t = translations[lang];
 
   useEffect(() => {
@@ -110,6 +111,12 @@ function AssistantPageContent() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (showEscalateModal) {
+      requestAnimationFrame(() => modalCancelRef.current?.focus());
+    }
+  }, [showEscalateModal]);
 
   const initHistory = async () => {
     const token = await getAccessToken();
@@ -199,6 +206,13 @@ function AssistantPageContent() {
       setErrorMessage(t.errorGeneric);
     } finally {
       setIsEscalating(false);
+    }
+  };
+
+  const handleModalKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setShowEscalateModal(false);
+      setEscalateSummary("");
     }
   };
 
@@ -315,7 +329,7 @@ function AssistantPageContent() {
               <Bot className="w-4 h-4" style={{ color: "var(--brand-secondary)" }} />
             </div>
             <div>
-              <h1 className="text-base font-semibold" style={{ fontFamily: "var(--font-sans)", color: "var(--text-primary)" }}>
+              <h1 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
                 {t.title}
               </h1>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.subtitle}</p>
@@ -328,7 +342,7 @@ function AssistantPageContent() {
               onClick={() => setLang(lang === "FR" ? "PT" : "FR")}
               className="px-2.5 py-1 rounded-md border text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
               style={{ borderColor: "var(--surface-mist-strong)", color: "var(--text-secondary)" }}
-              aria-label="Changer de langue"
+              aria-label={lang === "FR" ? "Changer de langue" : "Mudar idioma"}
             >
               {lang}
             </button>
@@ -354,7 +368,7 @@ function AssistantPageContent() {
           aria-label="Conversation"
         >
           {isHistoryLoading ? (
-            <div className="h-full flex items-center justify-center">
+            <div className="h-full flex items-center justify-center" role="status">
               <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
               <span className="ml-2 text-sm" style={{ color: "var(--text-muted)" }}>{t.historyLoading}</span>
             </div>
@@ -452,12 +466,13 @@ function AssistantPageContent() {
                 className="px-4 py-3 rounded-2xl rounded-tl-sm border shadow-card"
                 style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
               >
-                <span className="flex gap-1">
+                <span className="flex gap-1" role="status" aria-label={lang === "FR" ? "L'IA répond…" : "A IA está a responder…"}>
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
                       className="w-1.5 h-1.5 rounded-full animate-bounce"
                       style={{ background: "var(--text-muted)", animationDelay: `${i * 0.15}s` }}
+                      aria-hidden="true"
                     />
                   ))}
                 </span>
@@ -511,8 +526,8 @@ function AssistantPageContent() {
           </form>
           <p className="text-xs text-center mt-2" style={{ color: "var(--text-muted)" }}>
             {lang === "FR"
-              ? "Cmd / Ctrl + Entrée pour envoyer · Shift + Entrée pour saut de ligne"
-              : "Cmd / Ctrl + Enter para enviar · Shift + Enter para nova linha"}
+              ? "Entrée pour envoyer · Shift + Entrée pour saut de ligne"
+              : "Enter para enviar · Shift + Enter para nova linha"}
           </p>
         </div>
       </main>
@@ -522,12 +537,21 @@ function AssistantPageContent() {
         <div
           className="fixed inset-0 flex items-center justify-center p-4 z-50"
           style={{ background: "rgba(0,0,0,0.45)" }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="escalate-modal-title"
+          onKeyDown={handleModalKeyDown}
         >
           <div
-            className="w-full max-w-lg rounded-2xl p-6"
+            className="fixed inset-0"
+            aria-hidden="true"
+            onClick={() => { setShowEscalateModal(false); setEscalateSummary(""); }}
+          />
+          <div
+            className="relative w-full max-w-lg"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="escalate-modal-title"
+          >
+          <div
+            className="rounded-2xl p-6"
             style={{
               background: "var(--surface-card)",
               border: "1px solid var(--surface-mist)",
@@ -554,6 +578,7 @@ function AssistantPageContent() {
               onChange={(e) => setEscalateSummary(e.target.value)}
               placeholder={t.summaryPlaceholder}
               rows={4}
+              aria-label={lang === "FR" ? "Résumé de votre problème légal" : "Resumo do seu problema jurídico"}
               className="w-full px-3 py-2.5 rounded-lg text-sm resize-none mb-5 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/20"
               style={{
                 border: "1px solid var(--surface-mist-strong)",
@@ -564,6 +589,7 @@ function AssistantPageContent() {
 
             <div className="flex justify-end gap-3">
               <button
+                ref={modalCancelRef}
                 type="button"
                 onClick={() => { setShowEscalateModal(false); setEscalateSummary(""); }}
                 disabled={isEscalating}
@@ -583,6 +609,7 @@ function AssistantPageContent() {
                 {t.escalateSubmitBtn}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

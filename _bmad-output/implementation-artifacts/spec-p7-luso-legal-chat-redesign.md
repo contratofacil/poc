@@ -2,7 +2,7 @@
 title: 'P7 — Luso-Legal Chat Visual Redesign'
 type: 'feature'
 created: '2026-06-09'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'ac4f784b4084d71aba5afbb876130b916e73d755'
 context: []
 ---
@@ -54,7 +54,7 @@ context: []
 
 **Execution:**
 
-- [ ] `apps/frontend/src/app/assistant/page.tsx` -- Redesign visuel complet :
+- [x] `apps/frontend/src/app/assistant/page.tsx` -- Redesign visuel complet :
 
   **Layout racine** (remplacer `flex flex-col px-4…py-6 style={{height:calc(100vh-56px)}}`) :
   ```tsx
@@ -102,6 +102,24 @@ context: []
 - Given clic "Parler à un avocat" (visible si messages > 0), then modal escalade s'ouvre (comportement inchangé)
 - Aucune couleur hex hardcodée — grep = 0
 - `tsc --noEmit` passe sans erreur
+
+## Review Notes (step-04)
+
+3 review subagents (adversarial, edge-case, a11y) ran post-implementation.
+
+**Fixed:**
+- [BUG] Keyboard hint said "Cmd/Ctrl+Enter" but handler fires on plain Enter — corrected to "Entrée pour envoyer · Shift+Entrée pour saut de ligne"
+- [CRITICAL a11y] Modal opened without moving focus inside and had no Escape key handler — added `useEffect` + `modalCancelRef` for focus-on-open, `handleModalKeyDown` for Escape, click-outside backdrop div
+- [BUG a11y] Modal textarea had no accessible label — added `aria-label`
+- [BUG a11y] Typing indicator dots had no SR text — added `role="status"` + `aria-label` on the dots wrapper
+- [MINOR] `<h1>` was overriding font with `--font-sans` — removed override (globals base styles apply Playfair Display automatically)
+- [MINOR] Language toggle `aria-label` was hardcoded French — made dynamic (`"Changer de langue"` / `"Mudar idioma"`)
+- [MINOR] History loading container missing `role="status"` — added
+
+**Deferred (pre-existing / out of scope):**
+- `rgba(0,0,0,0.45)` modal backdrop — no `--overlay-backdrop` token defined yet; deferred
+- Optimistic message not rolled back on failure — pre-existing behaviour
+- `AppShell requireAuth={false}` inside `AuthGuard` — pre-existing pattern
 
 ## Spec Change Log
 
