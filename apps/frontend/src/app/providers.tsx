@@ -2,6 +2,7 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 import { PRIVY_APP_ID, PRIVY_CLIENT_ID, privyConfig } from "@/lib/privy";
+import { EasyLawUserProvider } from "@/contexts/EasyLawUserContext";
 
 /**
  * EasyLaw App Providers
@@ -10,8 +11,8 @@ import { PRIVY_APP_ID, PRIVY_CLIENT_ID, privyConfig } from "@/lib/privy";
  * Must be a Client Component (React context requires it).
  *
  * Providers stacked:
- *  1. PrivyProvider — auth, embedded wallets, DID identity
- *     (add more providers below as needed: React Query, Zustand, etc.)
+ *  1. PrivyProvider        — auth, embedded wallets, DID identity
+ *  2. EasyLawUserProvider  — synchronise Privy → backend EasyLaw (rôle, profil)
  */
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -20,7 +21,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       clientId={PRIVY_CLIENT_ID || undefined}
       config={privyConfig}
     >
-      {children}
+      <EasyLawUserProvider>
+        {children}
+      </EasyLawUserProvider>
     </PrivyProvider>
   );
 }

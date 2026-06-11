@@ -9,7 +9,8 @@ import {
   useLoginWithPasskey,
   useCreateWallet,
 } from "@privy-io/react-auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { EasyLawUserContext, isProRole, isAdminRole } from "@/contexts/EasyLawUserContext";
 
 // ─── Test-mode types ──────────────────────────────────────────────────────────
 
@@ -75,17 +76,32 @@ export function useEasyLawAuth() {
   // ── Real Privy hook ──────────────────────────────────────────────────────────
   const { ready, authenticated, user, logout, getAccessToken } = privyHook;
 
+  // ── EasyLaw profile (synced from backend after Privy auth) ───────────────────
+  // useContext direct pour éviter une dépendance circulaire (hooks.ts ↔ context)
+  const easyLawCtx = useContext(EasyLawUserContext);
+  const easyLawProfile = easyLawCtx?.profile ?? null;
+
   return {
     ready,
     authenticated,
     user,
     userId: user?.id,
-    email: user?.email?.address,
+    email: user?.email?.address ?? easyLawProfile?.email,
     phone: user?.phone?.number,
     logout,
     getAccessToken,
-    /** True if user has a lawyer/cabinet role stored in Privy custom metadata */
-    isPro: (user?.customMetadata as Record<string, unknown>)?.role === "pro",
+    /** Profil utilisateur EasyLaw (id local, rôle, nom, etc.) */
+    easyLawProfile,
+    /** ID local EasyLaw (différent du DID Privy) */
+    easyLawUserId: easyLawProfile?.id ?? null,
+    /** Rôle EasyLaw (avocat, admin, super_admin…) */
+    easyLawRole: easyLawProfile?.role ?? null,
+    /** True si l'utilisateur a un rôle professionnel (avocat, juriste…) */
+    isPro: isProRole(easyLawProfile?.role),
+    /** True si l'utilisateur a un rôle administrateur */
+    isAdmin: isAdminRole(easyLawProfile?.role),
+    /** État de la synchronisation Privy → backend */
+    syncStatus: easyLawCtx?.syncStatus ?? "idle",
   };
 }
 
