@@ -3,6 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { PRIVY_APP_ID, PRIVY_CLIENT_ID, privyConfig } from "@/lib/privy";
 import { EasyLawUserProvider } from "@/contexts/EasyLawUserContext";
+import { LanguageProvider } from "@/lib/lang/LanguageContext";
 
 /**
  * EasyLaw App Providers
@@ -16,14 +17,16 @@ import { EasyLawUserProvider } from "@/contexts/EasyLawUserContext";
  */
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <PrivyProvider
-      appId={PRIVY_APP_ID}
-      clientId={PRIVY_CLIENT_ID || undefined}
-      config={privyConfig}
-    >
-      <EasyLawUserProvider>
-        {children}
-      </EasyLawUserProvider>
-    </PrivyProvider>
+    <LanguageProvider>
+      <PrivyProvider
+        appId={PRIVY_APP_ID}
+        clientId={PRIVY_CLIENT_ID || undefined}
+        config={privyConfig}
+      >
+        <EasyLawUserProvider>
+          {children}
+        </EasyLawUserProvider>
+      </PrivyProvider>
+    </LanguageProvider>
   );
 }

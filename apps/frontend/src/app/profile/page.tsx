@@ -98,6 +98,9 @@ function ProfileContent() {
     if (syncStatus === "error" || syncStatus === "idle") {
       // Tentative directe via l'API (cas edge: test-mode ou contexte non monté)
       fetchProfileFromApi();
+    } else {
+      // syncStatus === "synced" mais pas de profil (ex: backend 401) → arrêter le chargement
+      setIsLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [easyLawProfile, syncStatus]);
