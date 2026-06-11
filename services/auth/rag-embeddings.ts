@@ -50,20 +50,48 @@ export function getCohereClient(): CohereClient {
   return cohereClient;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Shared timestamp to throttle across all calls (indexDocuments calls embedDocuments once per doc)
+let _lastCohereCall = 0;
+
 async function embedWithCohere(texts: string[], inputType: 'search_query' | 'search_document'): Promise<number[][]> {
   const cohere = getCohereClient();
+  // Trial key: 100 calls/min → enforce ≥700 ms between ANY two calls globally
   const BATCH = 96;
+  const MIN_INTERVAL_MS = 700;
+  const MAX_RETRIES = 3;
   const results: number[][] = [];
   for (let i = 0; i < texts.length; i += BATCH) {
+    // Throttle: wait until MIN_INTERVAL_MS has passed since the last call
+    const elapsed = Date.now() - _lastCohereCall;
+    if (elapsed < MIN_INTERVAL_MS) await sleep(MIN_INTERVAL_MS - elapsed);
     const batch = texts.slice(i, i + BATCH);
-    const response = await cohere.v2.embed({
-      texts: batch,
-      model: 'embed-multilingual-v3.0',
-      inputType,
-      embeddingTypes: ['float'],
-    });
-    const embeds = (response.embeddings as any)?.float as number[][];
-    results.push(...embeds);
+    let attempt = 0;
+    while (true) {
+      try {
+        _lastCohereCall = Date.now();
+        const response = await cohere.v2.embed({
+          texts: batch,
+          model: 'embed-multilingual-v3.0',
+          inputType,
+          embeddingTypes: ['float'],
+        });
+        const embeds = (response.embeddings as any)?.float as number[][];
+        results.push(...embeds);
+        break;
+      } catch (err: any) {
+        const is429 = err?.statusCode === 429 || err?.message?.includes('TooManyRequests');
+        if (is429 && attempt < MAX_RETRIES) {
+          attempt++;
+          const wait = 60_000 * attempt;
+          console.warn(`[EMBED] Cohere 429 — attente ${wait / 1000}s avant retry ${attempt}/${MAX_RETRIES}…`);
+          await sleep(wait);
+        } else {
+          throw err;
+        }
+      }
+    }
   }
   return results;
 }
@@ -167,16 +195,34 @@ export async function embedDocuments(texts: string[]): Promise<number[][]> {
 // Qdrant collections
 // ---------------------------------------------------------------------------
 
-export const QDRANT_COLLECTIONS = ['legal_pt', 'legal_eu', 'legal_jurisprudence', 'legal_caad'] as const;
+export const QDRANT_COLLECTIONS = [
+  'legal_pt',           // Législation PT nationale : DRE, ACT, BTE
+  'legal_eu',           // Droit UE : EUR-Lex, CURIA
+  'legal_jurisprudence',// Jurisprudence : DGSI, TC, TCONTAS, CAAD
+  'legal_regulators',   // Autorités de régulation : CMVM, ASF, AdC, BDP, AT
+] as const;
 export type QdrantCollection = typeof QDRANT_COLLECTIONS[number];
 
 export const SOURCE_TO_COLLECTION: Record<string, QdrantCollection> = {
-  DRE_I: 'legal_pt',
-  DRE_II: 'legal_pt',
-  DGSI: 'legal_jurisprudence',
-  CURIA: 'legal_jurisprudence',
-  EURLEX: 'legal_eu',
-  CAAD: 'legal_caad',
+  // Législation nationale
+  DRE_I:    'legal_pt',
+  DRE_II:   'legal_pt',
+  ACT:      'legal_pt',
+  BTE:      'legal_pt',
+  // Droit européen
+  EURLEX:   'legal_eu',
+  CURIA:    'legal_eu',
+  // Jurisprudence
+  DGSI:     'legal_jurisprudence',
+  TC:       'legal_jurisprudence',
+  TCONTAS:  'legal_jurisprudence',
+  CAAD:     'legal_jurisprudence',
+  // Autorités de régulation
+  AT:       'legal_regulators',
+  BDP:      'legal_regulators',
+  CMVM:     'legal_regulators',
+  ASF:      'legal_regulators',
+  ADC:      'legal_regulators',
 };
 
 // Dimension selon le modèle choisi (Cohere & HF multilingual-e5-large & mxbai-embed-large = 1024)

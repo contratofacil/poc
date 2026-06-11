@@ -176,12 +176,32 @@ const CLS_BTN_OUTLINE =
 // ─── Source colors ─────────────────────────────────────────────────────────────
 
 const SOURCE_COLORS: Record<string, string> = {
-  DRE_I: "#1A6FC4",
-  DRE_II: "#2E86AB",
-  DGSI: "#7C3AED",
-  CURIA: "#0F5C2E",
-  EURLEX: "#1A4B8C",
-  CAAD: "#C96B30",
+  // Législation PT
+  DRE_I:   "#1A6FC4",
+  DRE_II:  "#2E86AB",
+  BTE:     "#0E7490",
+  ACT:     "#0369A1",
+  // Droit UE
+  EURLEX:  "#1A4B8C",
+  CURIA:   "#0F5C2E",
+  // Jurisprudence
+  DGSI:    "#7C3AED",
+  TC:      "#9333EA",
+  TCONTAS: "#C026D3",
+  CAAD:    "#C96B30",
+  // Régulateurs
+  AT:      "#B45309",
+  BDP:     "#DC2626",
+  CMVM:    "#B91C1C",
+  ASF:     "#7C2D12",
+  ADC:     "#92400E",
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  DRE_I: "DRE I", DRE_II: "DRE II", BTE: "BTE", ACT: "ACT",
+  EURLEX: "EUR-Lex", CURIA: "CURIA",
+  DGSI: "DGSI", TC: "Trib. Const.", TCONTAS: "T. Contas", CAAD: "CAAD",
+  AT: "AT", BDP: "BDP", CMVM: "CMVM", ASF: "ASF", ADC: "AdC",
 };
 
 // ─── Admin sub-sidebar nav ─────────────────────────────────────────────────────
@@ -1432,7 +1452,12 @@ function AdminPageContent() {
                   <RefreshCw className={`w-4 h-4 ${isTriggeringIndex ? "animate-spin" : ""}`} aria-hidden="true" />
                   {isTriggeringIndex ? "Déclenchement…" : "Ré-indexer toutes les sources"}
                 </button>
-                {["DRE_I", "DRE_II", "DGSI", "CURIA", "EURLEX", "CAAD"].map((src) => (
+                {[
+                  "DRE_I", "DRE_II", "BTE", "ACT",
+                  "EURLEX", "CURIA",
+                  "DGSI", "TC", "TCONTAS", "CAAD",
+                  "AT", "BDP", "CMVM", "ASF", "ADC",
+                ].map((src) => (
                   <button
                     key={src}
                     onClick={() => handleTriggerIndex(src)}
@@ -1440,7 +1465,7 @@ function AdminPageContent() {
                     className={CLS_BTN_OUTLINE}
                     style={{ borderColor: SOURCE_COLORS[src] ?? "var(--surface-mist)", color: SOURCE_COLORS[src] ?? "var(--text-secondary)" }}
                   >
-                    {src.replace("_", " ")}
+                    {SOURCE_LABELS[src] ?? src}
                   </button>
                 ))}
               </div>
