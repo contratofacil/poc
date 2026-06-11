@@ -282,7 +282,7 @@ function AdminPageContent() {
   useEffect(() => {
     fetchProfileAndData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getAccessToken]);
 
   useEffect(() => {
     if (profile?.role && ADMIN_ROLES.includes(profile.role as UserRole)) fetchStats(period);

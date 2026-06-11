@@ -120,6 +120,7 @@ function ResearchPageContent() {
         if (!ALLOWED_ROLES.includes(role)) {
           setRoleError(true);
         } else {
+          setRoleError(false);
           setUserRole(role);
           loadHistory(token);
         }
@@ -131,7 +132,7 @@ function ResearchPageContent() {
     };
     init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getAccessToken]);
 
   const loadHistory = async (token: string) => {
     try {

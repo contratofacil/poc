@@ -9,15 +9,71 @@ import {
   useLoginWithPasskey,
   useCreateWallet,
 } from "@privy-io/react-auth";
+import { useState, useEffect } from "react";
 
-/* ─── 1. Auth state ───────────────────────────────────────────────────────── */
+// ─── Test-mode types ──────────────────────────────────────────────────────────
+
+interface TestUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  lang: string;
+  is_verified: number;
+  created_at: string;
+  token: string;
+}
+
+declare global {
+  interface Window {
+    __TEST_MODE__?: boolean;
+    __TEST_USER__?: TestUser;
+  }
+}
+
+// ─── 1. Auth state ────────────────────────────────────────────────────────────
 
 /**
  * Returns the current auth state.
- * Always check `ready` before using `authenticated` or `user`.
+ * In test environments (window.__TEST_MODE__ === true) reads from
+ * window.__TEST_USER__ instead of Privy so Playwright tests can run
+ * without a real Privy App ID.
  */
 export function useEasyLawAuth() {
-  const { ready, authenticated, user, logout, getAccessToken } = usePrivy();
+  const privyHook = usePrivy();
+
+  // Test-mode state (only active when window.__TEST_MODE__ is set)
+  const [testUser, setTestUser] = useState<TestUser | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.__TEST_MODE__ && window.__TEST_USER__) {
+      setTestUser(window.__TEST_USER__);
+    }
+  }, []);
+
+  // ── Test mode override ───────────────────────────────────────────────────────
+  if (testUser) {
+    const RESEARCH_ROLES = ["super_admin", "admin", "cabinet_avocat", "avocat", "avocat_associe", "juriste"];
+    return {
+      ready: true,
+      authenticated: true,
+      user: { id: testUser.id, email: { address: testUser.email } } as any,
+      userId: testUser.id,
+      email: testUser.email,
+      phone: undefined,
+      logout: async () => {
+        if (typeof window !== "undefined") {
+          window.__TEST_MODE__ = false;
+          window.__TEST_USER__ = undefined;
+        }
+      },
+      getAccessToken: async () => testUser.token,
+      isPro: RESEARCH_ROLES.includes(testUser.role),
+    };
+  }
+
+  // ── Real Privy hook ──────────────────────────────────────────────────────────
+  const { ready, authenticated, user, logout, getAccessToken } = privyHook;
 
   return {
     ready,
@@ -57,14 +113,6 @@ export function usePasskeyAuth() {
 
 /* ─── 3. Embedded wallet (on-chain document signing) ─────────────────────── */
 
-/**
- * Returns the user's embedded Ethereum wallet.
- * Used for on-chain document signing (complement to CMD eIDAS).
- *
- * Usage:
- *   const { wallet, address, signDocument } = useDocumentWallet();
- *   await signDocument("0xdocumentHash...");
- */
 export function useDocumentWallet() {
   const { wallets, ready } = useWallets();
   const { createWallet } = useCreateWallet();
@@ -73,28 +121,18 @@ export function useDocumentWallet() {
     (w) => w.walletClientType === "privy"
   );
 
-  /**
-   * Sign a document hash on-chain.
-   * @param documentHash - keccak256 hash of the document (hex string)
-   * @returns signature hex string
-   */
   async function signDocument(documentHash: string): Promise<string> {
     if (!embeddedWallet) {
       throw new Error("No embedded wallet found. Please create one first.");
     }
-
     const provider = await embeddedWallet.getEthereumProvider();
     const signature = await provider.request({
       method: "personal_sign",
       params: [documentHash, embeddedWallet.address],
     });
-
     return signature as string;
   }
 
-  /**
-   * Ensure the user has an embedded wallet, creating one if needed.
-   */
   async function ensureWallet() {
     if (!embeddedWallet) {
       return createWallet();
@@ -114,10 +152,6 @@ export function useDocumentWallet() {
 
 /* ─── 4. DID Identity helpers ────────────────────────────────────────────── */
 
-/**
- * Returns a decentralized identity summary for the user.
- * Used in Golden Visa / D7 / NIF modules for identity verification.
- */
 export function useUserIdentity() {
   const { user, ready } = usePrivy();
 
@@ -127,12 +161,10 @@ export function useUserIdentity() {
 
   return {
     ready,
-    /** Privy DID — portable decentralized identifier */
     did: user.id,
     linkedAccounts: user.linkedAccounts ?? [],
     verifiedEmail: !!user.email?.address,
     verifiedPhone: !!user.phone?.number,
-    /** All verified wallet addresses */
     walletAddresses: (user.linkedAccounts ?? [])
       .filter((a) => a.type === "wallet" || a.type === "smart_wallet")
       .map((a) => (a as { address: string }).address),
