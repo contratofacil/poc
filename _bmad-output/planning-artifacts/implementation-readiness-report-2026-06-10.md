@@ -375,9 +375,17 @@ Le projet dispose déjà d'un frontend en cours (`apps/frontend/`). **Les epics 
 
 ### Statut Global de Readiness
 
-> ## 🔴 NOT READY — 18 issues bloquants identifiés
+> ## 🟠 RÉVISÉ (2026-06-11) — Le code a dépassé les plans : focus finalisation, pas réécriture des epics
 
-Le projet **ne peut pas démarrer l'implémentation MVP** dans l'état actuel des Epics & Stories sans corriger les issues critiques. Les specs UX/PRD sont solides, mais les epics présentent des lacunes substantielles.
+**Mise à jour du 2026-06-11 après audit du codebase :** l'évaluation initiale (🔴 NOT READY — 18 issues) portait sur les documents Epics & Stories. Or la vérification du code montre que **l'implémentation a largement dépassé la planification** :
+
+- ~28 pages frontend fonctionnelles (auth, NIF, contrats, documents IA, GED, analyse, recherche RAG, assistant, vault, admin, compliance), trilingue FR/PT/EN
+- 70+ endpoints backend (Express 5 + TypeScript), RBAC, chiffrement enveloppe AES-256 + R2, routeur multi-LLM, Qdrant
+- **87/87 tests backend passent** (6 suites Jest) — vérifié le 2026-06-11
+- **Build de production Next.js compile sans erreur** — vérifié le 2026-06-11
+- Dockerfiles et `.env.example` présents pour les deux services
+
+Plusieurs « stories manquantes » identifiées dans ce rapport sont en réalité **déjà implémentées dans le code** (auth Privy, contrat de prestation de services, pipeline RAG avec onglet d'indexation admin). Le verdict initial reste valable pour les documents de planification, mais **réécrire les epics serait du travail rétroactif sans valeur pour la finalisation**. Le plan d'action ci-dessous est donc remplacé par un plan de finalisation orienté lancement.
 
 ---
 
@@ -417,55 +425,73 @@ Le projet **ne peut pas démarrer l'implémentation MVP** dans l'état actuel de
 
 ---
 
-### Plan d'action recommandé (ordre de priorité)
+### Plan d'action de finalisation (mis à jour 2026-06-11 — basé sur l'audit du codebase)
 
-**Semaine 1 — Avant Sprint 0 :**
+> Le plan initial (réécriture des epics, 10 stories à créer) est **remplacé**. Objectif : lancement en ~2 semaines. Les epics seront mis à jour rétroactivement après lancement, pour documentation uniquement.
 
-1. **Réécrire Epic 1** — remplacer US-1.1/1.2 par stories Privy auth (OTP, Passkey, Google, LinkedIn), ajouter US-1.5 CMP et US-1.6 notification center
-2. **Compléter Epic 2** — ajouter US-2.5 KYC/eIDV (résoudre OQ-007 d'abord), US-2.6 génération procuration, enrichir US-2.4 timeline SSE
-3. **Compléter Epic 3** — ajouter US-3.5 (prestation), US-3.6 (statuts Lda), US-3.7 (procuration), enrichir US-3.4 disclaimers
-4. **Décision architecture** — OQ-007 (KYC provider), OQ-004 (landing intégrée vs séparée), OQ-006 (admin MVP ou Phase 2)
+**Jour 1 — Sauvegarde et décisions :**
 
-**Semaine 1-2 — Avant Sprint 1 :**
+1. **Commiter le travail en cours** — 18 fichiers modifiés + 4 dossiers non versionnés (`apps/frontend/src/app/analysis/`, `documents/`, `ged/`, `services/auth/routes/`) — risque de perte de travail
+2. **Décision OQ-007** — choisir le provider KYC (Onfido / Veriff / Privy KYC)
+3. **Obtenir les clés live** Stripe et SendGrid
 
-5. **Compléter Epic 5** — ajouter story pipeline RAG MVP (indexation DRE Série I & II)
-6. **Corriger incohérences langue** dans US-1.1 et US-5.1
-7. **Ajouter brownfield story** (audit codebase existant)
+**Jours 2-5 — Bloquants légaux + intégrations réelles (P0) :**
 
-**Sprint 2 :**
+4. **Cookie Consent Banner (CMP)** — absent du code, obligatoire RGPD/ePrivacy avant toute collecte (~1 j) — consent matrix déjà spécifiée dans EXPERIENCE.md
+5. **KYC / eIDV dans le wizard NIF** — obligation AML Lei 83/2017 (2-4 j selon provider)
+6. **Disclaimers + checkbox rétractation 14 j au checkout contrat** — spec EXPERIENCE.md §Contract Liability (~0,5 j)
+7. **Stripe en mode réel** — le paiement NIF est actuellement simulé ; activer clés live + tester le webhook (~1 j)
+8. **Email réel** — `services/auth/email.ts` est un mock console ; câbler SendGrid (~0,5 j)
 
-8. Traiter toutes les issues mineures (mode print, interrupt button, webhooks)
+**Jours 6-9 — Mise en production (P1) :**
+
+9. **Infra prod** — migration PostgreSQL (`DATABASE_URL` déjà prévu), R2 en mode réel, secrets (KEK vault en secret manager), hébergement EU
+10. **CI/CD** — aucun `.github/workflows` ; pipeline build + tests + deploy (~1 j)
+11. **Formulaire contact** — créer `POST /api/contact` (le frontend capture mais ne persiste pas) + remplacer les liens footer `#` (~0,5 j)
+
+**Jours 10-12 — Recette et lancement :**
+
+12. **Tests E2E des parcours payants** — étendre les 4 specs actuelles (auth/NIF) aux contrats et au checkout
+13. **Recette complète + lancement**
+
+**Post-lancement (P2) :**
+
+14. **OCR réel** — stub actuel dans `routes/epic10-analysis.ts` ; intégrer Tesseract ou service tiers (ou assumer « PDF uniquement » au lancement)
+15. **Webhook NRAU réel** — stub dans `routes/epic8-contracts.ts` ; les templates restent statiques au lancement
+16. **Contrats manquants** — Statuts Lda/Unipessoal (FR-A02-05) et Procuration (FR-A02-06) absents des 5 templates en base ; génération procuration NIF (FR-A01-03) à vérifier
+17. **Notification center in-app**, mode print CSS, interrupt button Luso-Legal
+18. **Mise à jour documentaire des epics** — aligner les stories sur le code livré
 
 ---
 
-### Nouvelles Stories à créer (récapitulatif)
+### État des « stories manquantes » vs codebase (audit 2026-06-11)
 
-| Story | Epic | Priorité | FR couvert |
-|-------|------|----------|-----------|
-| US-1.1 (réécriture) | 1 | 🔴 Critique | Auth Privy |
-| US-1.2 (réécriture) | 1 | 🔴 Critique | Auth Privy |
-| US-1.5 — Cookie Consent CMP | 1 | 🔴 Critique | Legal RGPD |
-| US-1.6 — In-App Notification Center | 1 | 🟠 Important | FR-A01-05 |
-| US-2.5 — KYC / eIDV | 2 | 🔴 Critique | AML Lei 83/2017 |
-| US-2.6 — Génération procuration NIF | 2 | 🔴 Critique | FR-A01-03 |
-| US-3.5 — Wizard Prestation de services | 3 | 🔴 Critique | FR-A02-03 |
-| US-3.6 — Wizard Statuts Lda | 3 | 🔴 Critique | FR-A02-05 |
-| US-3.7 — Wizard Procuration | 3 | 🔴 Critique | FR-A02-06 |
-| US-5.0 — Pipeline RAG indexation MVP | 5 | 🔴 Critique | FR-A04-01 |
+| Story identifiée | Priorité initiale | État réel dans le code |
+|-------|----------|-----------|
+| US-1.1 / US-1.2 (réécriture Privy) | 🔴 Critique | ✅ **Déjà implémenté** — login JWT + Privy fonctionnels |
+| US-1.5 — Cookie Consent CMP | 🔴 Critique | ❌ **À faire** — bloquant légal lancement |
+| US-1.6 — In-App Notification Center | 🟠 Important | ❌ À faire — post-lancement acceptable |
+| US-2.5 — KYC / eIDV | 🔴 Critique | ❌ **À faire** — bloquant légal lancement (OQ-007 à résoudre d'abord) |
+| US-2.6 — Génération procuration NIF | 🔴 Critique | ⚠️ À vérifier — flow NIF complet mais génération procuration non confirmée |
+| US-3.5 — Wizard Prestation de services | 🔴 Critique | ✅ **Déjà implémenté** — template `prestation_services` en base |
+| US-3.6 — Wizard Statuts Lda | 🔴 Critique | ❌ À faire — post-lancement possible si périmètre commercial ajusté |
+| US-3.7 — Wizard Procuration | 🔴 Critique | ❌ À faire — post-lancement possible si périmètre commercial ajusté |
+| US-5.0 — Pipeline RAG indexation MVP | 🔴 Critique | ✅ **Déjà implémenté** — Qdrant + onglet RAG indexing dans l'admin |
 
-**Total : 10 stories à créer, 6 stories à enrichir (ACs)**
+**Bilan : 3 des 10 stories « critiques » sont déjà codées et testées.** Restent 2 bloquants légaux (CMP, KYC), 1 vérification (procuration NIF), et 3 éléments différables post-lancement.
 
 ---
 
-### Note finale
+### Note finale (révisée 2026-06-11)
 
-Cette évaluation a identifié **18 issues** (6 critiques, 8 majeures, 4 mineures) sur 5 dimensions : couverture PRD, alignement UX, qualité epics, conformité légale, et cohérence architecturale.
+L'évaluation initiale a identifié **18 issues** sur les documents de planification — mais l'audit du codebase du 2026-06-11 montre que l'écart réel se situe entre **le code et la production**, pas entre les specs et le code. Le projet est à ~85-90 % d'un produit lançable : 87/87 tests backend verts, build production OK.
 
-Les **specs UX** (EXPERIENCE.md, DESIGN.md) sont de très haute qualité et constituent une base solide. Les reviews du 2026-06-09 ont déjà corrigé les problèmes de contraste WCAG, AML/KYC, Cookie consent et responsabilité civile dans les specs. **Le seul travail restant est de faire descendre ces specs dans les Epics & Stories.**
+Les vrais bloquants de lancement sont au nombre de trois : **CMP cookies** (RGPD/ePrivacy), **KYC/eIDV** (Lei 83/2017) et **disclaimers checkout** (Dir. 2011/83/UE) — auxquels s'ajoutent le passage de Stripe et SendGrid en mode réel et l'infrastructure de production. Estimation : **~2 semaines jusqu'au lancement.**
 
-Une fois les 10 stories ajoutées et les 6 stories enrichies, le projet sera **READY** pour l'implémentation.
+La mise à jour des Epics & Stories pour refléter le code livré est reléguée en tâche documentaire post-lancement.
 
 ---
 
 *Rapport généré par BMAD Check Implementation Readiness v6.8.0 — EasyLaw × ContratoFácil — Porto, Portugal*
 *Focus : Fonctionnalités manquantes pour un meilleur UX — 2026-06-10*
+*Plan d'action révisé le 2026-06-11 après audit du codebase (tests + build vérifiés)*
