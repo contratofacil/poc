@@ -119,7 +119,7 @@ describe('POST /api/auth/register', () => {
     expect(res.body.user).toBeDefined();
     expect(res.body.user.email).toBe(validPayload.email);
     expect(res.body.user.name).toBe(validPayload.name);
-    expect(res.body.user.role).toBe('client');
+    expect(res.body.user.role).toBe('salarie');
     expect(res.body.user.is_verified).toBe(0);
     expect(res.body.token).toBeDefined();
     
@@ -486,7 +486,7 @@ describe('Profile & RBAC & Collaborator Invitation Tests', () => {
     expect(loginRes.status).toBe(401);
   });
 
-  test('POST /api/auth/invite - should forbid non-admin_cabinet users', async () => {
+  test('POST /api/auth/invite - should forbid non-admin users', async () => {
     const res = await request(app)
       .post('/api/auth/invite')
       .set('Authorization', `Bearer ${token}`)
@@ -497,9 +497,9 @@ describe('Profile & RBAC & Collaborator Invitation Tests', () => {
     expect(res.status).toBe(403);
   });
 
-  test('POST /api/auth/invite - should allow admin_cabinet to invite collaborator', async () => {
-    // Let's manually set the user's role to admin_cabinet in DB
-    await run("UPDATE users SET role = 'admin_cabinet' WHERE id = ?", [userId]);
+  test('POST /api/auth/invite - should allow admin to invite collaborator', async () => {
+    // Promote user to admin role
+    await run("UPDATE users SET role = 'admin' WHERE id = ?", [userId]);
 
     const res = await request(app)
       .post('/api/auth/invite')
@@ -550,8 +550,8 @@ describe('Contract Generator & Vault Epic Tests', () => {
       });
     adminToken = regAdmin.body.token;
     adminUserId = regAdmin.body.user.id;
-    // Set to admin_cabinet role
-    await run("UPDATE users SET role = 'admin_cabinet' WHERE id = ?", [adminUserId]);
+    // Set to cabinet_avocat role
+    await run("UPDATE users SET role = 'cabinet_avocat' WHERE id = ?", [adminUserId]);
   });
 
   test('GET /api/contracts/templates - should list contract templates', async () => {

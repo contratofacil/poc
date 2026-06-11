@@ -6,6 +6,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import cron from 'node-cron';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import swaggerUi from 'swagger-ui-express';
 import { initDb, run, get, all, closeDb } from './db';
 import { sendVerificationEmail } from './email';
 import { assertVaultConfig } from './storage/r2-client';
@@ -28,11 +31,59 @@ import {
   PROVIDER_MODELS,
   LLMProvider,
 } from './rag-llm-router';
+import { createEpic8Router } from './routes/epic8-contracts';
+import { createEpic10Router } from './routes/epic10-analysis';
+import { createEpic11Router, setupCollaborationSocket } from './routes/epic11-documents';
+import { createEpic12Router } from './routes/epic12-ged';
+import { createEpic13Router, buildOpenAPISpec } from './routes/epic13-api';
 
 // Load environment variables
 dotenv.config();
 
+// ─── Role definitions ─────────────────────────────────────────────────────────
+export const ROLES = {
+  SUPER_ADMIN:    'super_admin',
+  ADMIN:          'admin',
+  CABINET_AVOCAT: 'cabinet_avocat',
+  AVOCAT:         'avocat',
+  AVOCAT_ASSOCIE: 'avocat_associe',
+  JURISTE:        'juriste',
+  SALARIE:        'salarie',
+  ASSISTANT:      'assistant',
+} as const;
+
+export type UserRole = typeof ROLES[keyof typeof ROLES];
+
+export const ALL_ROLES: UserRole[] = [
+  'super_admin', 'admin', 'cabinet_avocat',
+  'avocat', 'avocat_associe', 'juriste',
+  'salarie', 'assistant',
+];
+
+// Can access admin dashboard & manage cabinet
+export const ADMIN_ROLES: UserRole[] = ['super_admin', 'admin', 'cabinet_avocat'];
+
+// Can change user roles (super admins + admins)
+export const ROLE_MANAGER_ROLES: UserRole[] = ['super_admin', 'admin'];
+
+// Can access legal research (RAG)
+export const RESEARCH_ROLES_LIST: UserRole[] = [
+  'super_admin', 'admin', 'cabinet_avocat',
+  'avocat', 'avocat_associe', 'juriste',
+];
+
+// Can see all vault documents (not just own)
+export const VAULT_PRIVILEGED_ROLES: UserRole[] = [
+  'super_admin', 'admin', 'cabinet_avocat', 'avocat',
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
 const app = express();
+const httpServer = http.createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: { origin: process.env.FRONTEND_URL ?? '*', methods: ['GET', 'POST', 'PATCH'] },
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -105,7 +156,7 @@ app.post('/api/auth/register', async (req: Request, res: Response): Promise<void
     // 4. Generate metadata
     const userId = crypto.randomUUID();
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const role = 'client';
+    const role = 'salarie';
     const createdAt = new Date().toISOString();
 
     // 5. Save to database
@@ -419,11 +470,11 @@ app.post('/api/auth/profile/export', authMiddleware, async (req: Request, res: R
 // Zod Schema for Invite
 const inviteSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
-  role: z.enum(['admin_cabinet', 'avocat', 'avocat_junior', 'client'])
+  role: z.enum(['super_admin', 'admin', 'cabinet_avocat', 'avocat', 'avocat_associe', 'juriste', 'salarie', 'assistant'])
 });
 
 // Invite collaborator endpoint
-app.post('/api/auth/invite', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/auth/invite', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = inviteSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -889,23 +940,7 @@ const generateContractSchema = z.object({
   data: z.record(z.string(), z.any())
 });
 
-// GET /api/contracts/templates
-app.get('/api/contracts/templates', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const templates = [
-      { id: "bail_habitation", name: "Contrat de bail d'habitation", type: "Bail", description: "Contrat de location standard pour logement." },
-      { id: "travail_cdi", name: "Contrat de travail CDI", type: "Travail", description: "Contrat de travail à durée indéterminée de droit portugais." },
-      { id: "prestation_services", name: "Contrat de prestation de services", type: "Prestation", description: "Contrat de services pour freelances et entreprises." }
-    ];
-    res.status(200).json({
-      success: true,
-      templates
-    });
-  } catch (error) {
-    console.error('Error fetching templates:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  }
-});
+// GET /api/contracts/templates — handled by Epic 8 router (mounted below)
 
 // POST /api/contracts/generate
 app.post('/api/contracts/generate', authMiddleware, async (req: Request, res: Response): Promise<void> => {
@@ -986,8 +1021,8 @@ app.get('/api/contracts/:id/preview', authMiddleware, async (req: Request, res: 
       return;
     }
 
-    // Role check: client can only view their own contracts
-    if (userRole === 'client' && contract.user_id !== userId) {
+    // Role check: non-privileged roles can only view their own contracts
+    if (!RESEARCH_ROLES_LIST.includes(userRole as UserRole) && contract.user_id !== userId) {
       res.status(403).json({ success: false, message: 'Forbidden' });
       return;
     }
@@ -1105,7 +1140,7 @@ app.get('/api/vault/documents', authMiddleware, async (req: Request, res: Respon
   try {
     const userId = (req as any).user.id;
     const userRole = (req as any).user.role;
-    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    const isPrivileged = VAULT_PRIVILEGED_ROLES.includes(userRole as UserRole);
 
     let contracts: any[] = [];
     let vaultRows: VaultDocumentRow[] = [];
@@ -1185,7 +1220,7 @@ app.get('/api/vault/documents/:id/stream', authMiddleware, async (req: Request, 
       res.status(409).json({ success: false, message: `Document not ready (status=${row.status})` });
       return;
     }
-    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    const isPrivileged = VAULT_PRIVILEGED_ROLES.includes(userRole as UserRole);
     if (!isPrivileged && row.user_id !== userId) {
       await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
       res.status(403).json({ success: false, message: 'Forbidden' });
@@ -1228,7 +1263,7 @@ app.get('/api/vault/documents/:id/download-url', authMiddleware, async (req: Req
       res.status(409).json({ success: false, message: `Document not ready (status=${row.status})` });
       return;
     }
-    const isPrivileged = userRole === 'admin_cabinet' || userRole === 'avocat';
+    const isPrivileged = VAULT_PRIVILEGED_ROLES.includes(userRole as UserRole);
     if (!isPrivileged && row.user_id !== userId) {
       await logAudit(userId, 'FORBIDDEN_VAULT_ACCESS', 'vault_document', documentId, req);
       res.status(403).json({ success: false, message: 'Forbidden' });
@@ -1271,7 +1306,7 @@ app.get('/api/vault/documents/:id/download-url', authMiddleware, async (req: Req
 });
 
 // GET /api/vault/audit
-app.get('/api/vault/audit', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/vault/audit', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.id;
     const auditLogs = await all<any>('SELECT * FROM audit_log ORDER BY timestamp DESC');
@@ -1800,7 +1835,7 @@ app.delete('/api/compliance/:id', async (req: Request, res: Response): Promise<v
 // --- ADMIN SETTINGS & MANAGEMENT ROUTES ---
 
 // GET /api/admin/settings
-app.get('/api/admin/settings', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/admin/settings', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const settings = await all<{ key: string; value: string }>('SELECT * FROM system_settings');
     res.status(200).json({ success: true, settings });
@@ -1811,7 +1846,7 @@ app.get('/api/admin/settings', authMiddleware, checkRole(['admin_cabinet']), asy
 });
 
 // PUT /api/admin/settings
-app.put('/api/admin/settings', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.put('/api/admin/settings', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const { settings } = req.body;
     if (!settings || !Array.isArray(settings)) {
@@ -1831,7 +1866,7 @@ app.put('/api/admin/settings', authMiddleware, checkRole(['admin_cabinet']), asy
 });
 
 // GET /api/admin/clauses
-app.get('/api/admin/clauses', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/admin/clauses', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const clauses = await all('SELECT * FROM clause_versions');
     res.status(200).json({ success: true, clauses });
@@ -1842,7 +1877,7 @@ app.get('/api/admin/clauses', authMiddleware, checkRole(['admin_cabinet']), asyn
 });
 
 // POST /api/admin/clauses
-app.post('/api/admin/clauses', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/admin/clauses', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const { contract_type, clause_key, content, loi_reference } = req.body;
     if (!contract_type || !clause_key || !content) {
@@ -1867,7 +1902,7 @@ app.post('/api/admin/clauses', authMiddleware, checkRole(['admin_cabinet']), asy
 });
 
 // PUT /api/admin/clauses/:id
-app.put('/api/admin/clauses/:id', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.put('/api/admin/clauses/:id', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { content, loi_reference } = req.body;
@@ -1891,7 +1926,7 @@ app.put('/api/admin/clauses/:id', authMiddleware, checkRole(['admin_cabinet']), 
 });
 
 // DELETE /api/admin/clauses/:id
-app.delete('/api/admin/clauses/:id', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.delete('/api/admin/clauses/:id', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const clause = await get('SELECT id FROM clause_versions WHERE id = ?', [id]);
@@ -1909,7 +1944,7 @@ app.delete('/api/admin/clauses/:id', authMiddleware, checkRole(['admin_cabinet']
 });
 
 // GET /api/admin/users
-app.get('/api/admin/users', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/admin/users', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await all('SELECT id, email, name, role, lang, created_at FROM users WHERE deleted_at IS NULL');
     res.status(200).json({ success: true, users });
@@ -1920,12 +1955,12 @@ app.get('/api/admin/users', authMiddleware, checkRole(['admin_cabinet']), async 
 });
 
 // PUT /api/admin/users/:id/role
-app.put('/api/admin/users/:id/role', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.put('/api/admin/users/:id/role', authMiddleware, checkRole(ROLE_MANAGER_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (!role || !['admin_cabinet', 'avocat', 'avocat_junior', 'client'].includes(role)) {
+    if (!role || !ALL_ROLES.includes(role as UserRole)) {
       res.status(400).json({ success: false, message: 'Valid role is required' });
       return;
     }
@@ -1945,7 +1980,7 @@ app.put('/api/admin/users/:id/role', authMiddleware, checkRole(['admin_cabinet']
 });
 
 // GET /api/admin/stats
-app.get('/api/admin/stats', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/admin/stats', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const period = (req.query.period as string) || '30d';
 
@@ -2112,7 +2147,7 @@ app.get('/api/admin/stats', authMiddleware, checkRole(['admin_cabinet']), async 
 
 // ─── Epic 9: Module B — Recherche Juridique IA ────────────────────────────────
 
-const RESEARCH_ROLES = ['avocat', 'avocat_junior', 'admin_cabinet'];
+const RESEARCH_ROLES = RESEARCH_ROLES_LIST;
 
 // POST /api/research/query — SSE streaming, standard mode
 app.post('/api/research/query', authMiddleware, checkRole(RESEARCH_ROLES), async (req: Request, res: Response): Promise<void> => {
@@ -2215,7 +2250,7 @@ app.post('/api/research/:id/export', authMiddleware, checkRole(RESEARCH_ROLES), 
 // ─── Admin: LLM Prompts ───────────────────────────────────────────────────────
 
 // GET /api/admin/llm-prompts
-app.get('/api/admin/llm-prompts', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/admin/llm-prompts', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const prompts = await all('SELECT * FROM llm_prompts ORDER BY key');
     res.json({ success: true, prompts, providerModels: PROVIDER_MODELS });
@@ -2225,7 +2260,7 @@ app.get('/api/admin/llm-prompts', authMiddleware, checkRole(['admin_cabinet']), 
 });
 
 // PUT /api/admin/llm-prompts/:id
-app.put('/api/admin/llm-prompts/:id', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.put('/api/admin/llm-prompts/:id', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.id;
     const { system_prompt, user_prompt_template, provider, model, max_tokens, temperature, name, description } = req.body;
@@ -2260,7 +2295,7 @@ app.put('/api/admin/llm-prompts/:id', authMiddleware, checkRole(['admin_cabinet'
 });
 
 // POST /api/admin/llm-prompts/:id/test — test a prompt with sample variables
-app.post('/api/admin/llm-prompts/:id/test', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/admin/llm-prompts/:id/test', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const row = await get<{ key: string }>('SELECT key FROM llm_prompts WHERE id = ?', [req.params.id]);
     if (!row) { res.status(404).json({ success: false, message: 'Prompt not found' }); return; }
@@ -2276,7 +2311,7 @@ app.post('/api/admin/llm-prompts/:id/test', authMiddleware, checkRole(['admin_ca
 // ─── Admin: Indexing Management ───────────────────────────────────────────────
 
 // GET /api/admin/indexing/status
-app.get('/api/admin/indexing/status', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.get('/api/admin/indexing/status', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const runs = await all('SELECT * FROM indexing_runs ORDER BY started_at DESC LIMIT 20');
     const docCounts = await all<{ source: string; count: number }>(
@@ -2289,13 +2324,40 @@ app.get('/api/admin/indexing/status', authMiddleware, checkRole(['admin_cabinet'
 });
 
 // POST /api/admin/indexing/trigger
-app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(['admin_cabinet']), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   const { source } = req.body;
   runIncrementalIndex(source).catch((err) =>
     console.error('[MANUAL TRIGGER] Indexing error:', err?.message),
   );
   res.json({ success: true, message: `Indexing triggered for ${source ?? 'ALL'} sources` });
 });
+
+// ─── Epic 8: Extended Contract Templates ─────────────────────────────────────
+const epic8Router = createEpic8Router(authMiddleware, checkRole, logAudit);
+app.use('/api/contracts', epic8Router);
+
+// ─── Epic 10: Document Analysis ───────────────────────────────────────────────
+const epic10Router = createEpic10Router(authMiddleware, checkRole, putDocument, null, logAudit);
+app.use('/api/analysis', epic10Router);
+
+// ─── Epic 11: Document Generation & Collaboration ────────────────────────────
+const epic11Router = createEpic11Router(authMiddleware, checkRole, putDocument, logAudit, io);
+app.use('/api/documents', epic11Router);
+setupCollaborationSocket(io, (token: string) => jwt.verify(token, process.env.JWT_SECRET ?? 'easylaw-secret') as any);
+
+// ─── Epic 12: GED Cabinet ─────────────────────────────────────────────────────
+const epic12Router = createEpic12Router(authMiddleware, checkRole, putDocument, logAudit);
+app.use('/api/ged', epic12Router);
+
+// ─── Epic 13: Partner REST API + OAuth2 ──────────────────────────────────────
+const { oauthRouter, v1Router } = createEpic13Router(authMiddleware, checkRole);
+app.use('/api/oauth', oauthRouter);
+app.use('/api/v1', v1Router);
+
+// Swagger UI
+const openApiSpec = buildOpenAPISpec(process.env.API_BASE_URL ?? 'http://localhost:3000');
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.get('/api/docs/openapi.json', (_req: Request, res: Response) => res.json(openApiSpec));
 
 // Health check endpoint for Railway
 app.get('/health', (req: Request, res: Response) => {
@@ -2314,7 +2376,7 @@ if (process.env.NODE_ENV !== 'test') {
   }
   initDb()
     .then(() => {
-      app.listen(PORT, () => {
+      httpServer.listen(PORT, () => {
         console.log(`[AUTH SERVICE] Server is running on port ${PORT}`);
       });
       // Epic 9: init Qdrant collections (non-fatal if Qdrant not available)

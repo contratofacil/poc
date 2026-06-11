@@ -88,7 +88,7 @@ function VaultContent() {
         const profileRes = await apiFetch("/api/auth/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        let role = "client";
+        let role = "salarie";
         if (profileRes.ok) {
           const data = await profileRes.json();
           if (data.success && data.user) {
@@ -111,7 +111,7 @@ function VaultContent() {
 
         if (cancelled) return;
 
-        if (role === "admin_cabinet") {
+        if (["super_admin", "admin", "cabinet_avocat"].includes(role)) {
           const auditRes = await apiFetch("/api/vault/audit", {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -274,7 +274,7 @@ function VaultContent() {
           </section>
 
           {/* Admin Audit Trail Panel */}
-          {userRole === "admin_cabinet" && (
+          {userRole && ["super_admin", "admin", "cabinet_avocat"].includes(userRole) && (
             <section
               className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
               style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}

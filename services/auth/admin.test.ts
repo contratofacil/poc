@@ -46,7 +46,7 @@ describe('Epic 7: Admin Backoffice Paramétrage Endpoints', () => {
         lang: 'PT'
       });
     adminToken = regAdmin.body.token;
-    await run("UPDATE users SET role = 'admin_cabinet' WHERE id = ?", [regAdmin.body.user.id]);
+    await run("UPDATE users SET role = 'admin' WHERE id = ?", [regAdmin.body.user.id]);
 
     // Insert default settings
     await run("INSERT INTO system_settings (key, value) VALUES ('compliance_orange_days', '90')");

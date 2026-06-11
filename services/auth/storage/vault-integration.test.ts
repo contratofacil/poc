@@ -299,7 +299,7 @@ describe('Story 6-3 — vault list & stream RBAC', () => {
 
   test('stream endpoint allows admin to read any document', async () => {
     const alice = await registerUser('cross-alice@example.com');
-    const admin = await registerUser('cross-admin@example.com', 'admin_cabinet');
+    const admin = await registerUser('cross-admin@example.com', 'cabinet_avocat');
 
     await request(app)
       .post('/api/contracts/generate')

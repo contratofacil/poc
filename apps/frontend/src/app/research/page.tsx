@@ -101,7 +101,10 @@ function ResearchPageContent() {
   const responseRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const ALLOWED_ROLES = ["avocat", "avocat_junior", "admin_cabinet"];
+  const ALLOWED_ROLES = [
+    "super_admin", "admin", "cabinet_avocat",
+    "avocat", "avocat_associe", "juriste",
+  ];
 
   // ── Init: check role + load history ─────────────────────────────────────────
   useEffect(() => {

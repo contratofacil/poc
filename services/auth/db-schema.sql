@@ -260,3 +260,169 @@ INSERT INTO llm_prompts (id, key, name, description, system_prompt, user_prompt_
   0.3
 )
 ON CONFLICT (key) DO NOTHING;
+
+-- ─── Epic 8: New Contract Types ──────────────────────────────────────────────
+
+INSERT INTO clause_versions (id, contract_type, clause_key, content, loi_reference, valid_from, valid_to) VALUES
+('4', 'bail_commercial', 'loyer_commercial', 'Le loyer annuel est fixé à {loyer} EUR, payable mensuellement par douzièmes de {loyer_mensuel} EUR.', 'Art. 1038 do Código Civil + NRAU DL 321-B/90', '2026-01-01', ''),
+('5', 'bail_commercial', 'duree_commerciale', 'Le bail commercial est conclu pour une durée initiale de {duree} ans, à compter du {date_debut}.', 'Art. 1110 do Código Civil + Art. 100 NRAU', '2026-01-01', ''),
+('6', 'bail_commercial', 'activite', 'Les locaux sont destinés exclusivement à l''exercice de l''activité commerciale suivante : {activite}.', 'Art. 1109 do Código Civil', '2026-01-01', ''),
+('7', 'bail_commercial', 'depot_garantie', 'Le preneur verse un dépôt de garantie de {depot} EUR, restitué en fin de bail déduction faite des éventuels dommages.', 'Art. 1076 do Código Civil', '2026-01-01', ''),
+('8', 'nda', 'parties_nda', 'Le présent accord de confidentialité est conclu entre {divulgateur} (ci-après « Partie Divulgatrice ») et {recepteur} (ci-après « Partie Réceptrice »).', 'Art. 227 do Código Civil', '2026-01-01', ''),
+('9', 'nda', 'duree_nda', 'Les obligations de confidentialité s''appliquent pendant une durée de {duree_mois} mois à compter de la date de signature.', 'Art. 406 do Código Civil', '2026-01-01', ''),
+('10', 'nda', 'perimetre_confidentialite', 'Sont considérées comme confidentielles toutes les informations relatives à : {perimetre}. Sont exclues les informations déjà publiques ou communiquées par un tiers autorisé.', 'Art. 195 do Código Comercial', '2026-01-01', ''),
+('11', 'nda', 'sanctions_violation', 'Toute violation de la présente clause de confidentialité pourra donner lieu à une indemnisation de {penalite} EUR ainsi qu''à toutes autres mesures conservatoires ou définitives prévues par le droit portugais.', 'Art. 562 do Código Civil', '2026-01-01', '')
+ON CONFLICT (id) DO NOTHING;
+
+-- ─── Epic 10: Document Analysis ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS analysis_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  cabinet_id TEXT,
+  name TEXT,
+  status TEXT DEFAULT 'uploading',
+  doc_count INTEGER DEFAULT 0,
+  page_count INTEGER DEFAULT 0,
+  result_json TEXT,
+  error TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS analysis_documents (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  original_name TEXT,
+  mime_type TEXT,
+  page_count INTEGER DEFAULT 0,
+  ocr_done INTEGER DEFAULT 0,
+  r2_key TEXT,
+  text_extracted TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(session_id) REFERENCES analysis_sessions(id)
+);
+
+-- ─── Epic 11: Document Generation & Collaboration ────────────────────────────
+
+CREATE TABLE IF NOT EXISTS generated_documents (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  cabinet_id TEXT,
+  dossier_id TEXT,
+  title TEXT,
+  doc_type TEXT,
+  instruction_nl TEXT,
+  content_docx_r2_key TEXT,
+  content_pdf_r2_key TEXT,
+  status TEXT DEFAULT 'draft',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS document_versions (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  version_number INTEGER NOT NULL,
+  content_r2_key TEXT,
+  created_by TEXT NOT NULL,
+  change_summary TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS document_comments (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  anchor_text TEXT,
+  mentions TEXT DEFAULT '[]',
+  resolved INTEGER DEFAULT 0,
+  parent_id TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS document_suggestions (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  original_text TEXT,
+  suggested_text TEXT,
+  author_id TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- ─── Epic 12: GED Cabinet ────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS cabinet_dossiers (
+  id TEXT PRIMARY KEY,
+  cabinet_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_by TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cabinet_documents (
+  id TEXT PRIMARY KEY,
+  cabinet_id TEXT NOT NULL,
+  dossier_id TEXT,
+  title TEXT NOT NULL,
+  doc_type TEXT,
+  tags TEXT DEFAULT '[]',
+  r2_key TEXT,
+  mime_type TEXT,
+  size_bytes INTEGER,
+  ai_category TEXT,
+  ai_priority TEXT,
+  ai_summary TEXT,
+  indexed_qdrant INTEGER DEFAULT 0,
+  uploaded_by TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS document_validations (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  cabinet_id TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  validator_id TEXT,
+  notes TEXT,
+  client_message TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+
+-- ─── Epic 13: Partner API + OAuth2 ───────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS partner_api_keys (
+  id TEXT PRIMARY KEY,
+  client_id TEXT UNIQUE NOT NULL,
+  client_secret_hash TEXT NOT NULL,
+  partner_name TEXT NOT NULL,
+  rate_limit_per_hour INTEGER DEFAULT 1000,
+  scopes TEXT DEFAULT 'contracts:read nif:read compliance:read',
+  is_sandbox INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS partner_tokens (
+  token_hash TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  scopes TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS partner_webhooks (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL,
+  is_active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now'))
+);

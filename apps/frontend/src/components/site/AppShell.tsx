@@ -17,11 +17,8 @@ interface AppShellProps {
 }
 
 /**
- * <AppShell /> — wrapper layout pour les routes authentifiées (P3).
+ * AppShell — wrapper layout pour les routes authentifiées.
  * Compose sidebar + topbar + main scrollable. Auth check via localStorage token.
- *
- * Réutilisable pour /compliance, /nif, /contracts, /assistant, /vault.
- * Skip-link "Aller au contenu" pour AT/keyboard.
  */
 export function AppShell({
   activeSection,
@@ -42,7 +39,6 @@ export function AppShell({
       router.replace(`/login?redirect=${encodeURIComponent(path)}`);
       return;
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- gate de rendu post-auth-check (pattern aligné avec ConsentBanner P4)
     setAuthChecked(true);
   }, [requireAuth, currentPath, router]);
 
@@ -52,7 +48,7 @@ export function AppShell({
         className="min-h-screen flex items-center justify-center"
         style={{ background: "var(--surface-page)" }}
       >
-        <p className="text-sm text-[var(--text-muted)]">Vérification de session…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Vérification de session…</p>
       </div>
     );
   }
@@ -70,7 +66,6 @@ export function AppShell({
       <AppSidebar active={activeSection} />
 
       <div className="flex-1 min-w-0 flex flex-col pb-16 lg:pb-0">
-        {/* pb-16 lg:pb-0 réserve l'espace du bottom-nav mobile */}
         <AppTopBar breadcrumb={breadcrumb} hasNotifications={hasNotifications} />
         <main id="app-main" className="flex-1 min-w-0">
           {children}
