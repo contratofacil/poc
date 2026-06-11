@@ -6,7 +6,7 @@
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
 
-  <Id>easylaw-word-addin-2026</Id>
+  <Id>a26fb730-3abc-48b9-8fed-b7962605eeae</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>EasyLaw</ProviderName>
   <DefaultLocale>fr-FR</DefaultLocale>

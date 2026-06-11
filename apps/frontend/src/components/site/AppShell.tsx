@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useEasyLawAuth } from "@/lib/privy";
 import { AppSidebar, type AppSection } from "./AppSidebar";
 import { AppTopBar, type BreadcrumbItem } from "./AppTopBar";
 
@@ -9,7 +10,7 @@ interface AppShellProps {
   activeSection: AppSection;
   breadcrumb: BreadcrumbItem[];
   hasNotifications?: boolean;
-  /** Si true, requiert un token localStorage — sinon redirect /login?redirect=<currentPath>. */
+  /** Si true, requiert une session Privy — sinon redirect /login?redirect=<currentPath>. */
   requireAuth?: boolean;
   /** Path courant pour le param redirect (default : window.location.pathname côté client). */
   currentPath?: string;
@@ -18,7 +19,7 @@ interface AppShellProps {
 
 /**
  * AppShell — wrapper layout pour les routes authentifiées.
- * Compose sidebar + topbar + main scrollable. Auth check via localStorage token.
+ * Compose sidebar + topbar + main scrollable. Auth check via Privy.
  */
 export function AppShell({
   activeSection,
@@ -29,20 +30,18 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const router = useRouter();
-  const [authChecked, setAuthChecked] = React.useState(!requireAuth);
+  const { ready, authenticated } = useEasyLawAuth();
 
   React.useEffect(() => {
-    if (!requireAuth) return;
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) {
-      const path = currentPath ?? window.location.pathname;
-      router.replace(`/login?redirect=${encodeURIComponent(path)}`);
-      return;
-    }
-    setAuthChecked(true);
-  }, [requireAuth, currentPath, router]);
+    if (!requireAuth || !ready || authenticated) return;
+    // window.__TEST_MODE__ s'active de façon asynchrone (Playwright) — ne pas
+    // rediriger avant que useEasyLawAuth ait pu le prendre en compte.
+    if (typeof window !== "undefined" && window.__TEST_MODE__) return;
+    const path = currentPath ?? window.location.pathname;
+    router.replace(`/login?redirect=${encodeURIComponent(path)}`);
+  }, [requireAuth, ready, authenticated, currentPath, router]);
 
-  if (!authChecked) {
+  if (requireAuth && !(ready && authenticated)) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

@@ -1,13 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  root: 'src',
   build: {
+    outDir: '../dist',
+    emptyOutDir: true,
     rollupOptions: {
       input: {
-        taskpane: 'src/taskpane.html',
-        commands: 'src/commands.html',
+        taskpane: resolve(__dirname, 'src/taskpane.html'),
+        commands: resolve(__dirname, 'src/commands.html'),
       },
     },
   },
