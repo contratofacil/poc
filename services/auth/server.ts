@@ -1884,7 +1884,7 @@ app.put('/api/admin/settings', authMiddleware, checkRole(ADMIN_ROLES), async (re
     }
 
     for (const item of settings) {
-      await run('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)', [item.key, item.value]);
+      await run('INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value', [item.key, item.value]);
     }
 
     res.status(200).json({ success: true, message: 'Settings updated successfully' });

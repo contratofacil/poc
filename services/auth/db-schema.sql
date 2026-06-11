@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS analysis_sessions (
   page_count INTEGER DEFAULT 0,
   result_json TEXT,
   error TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT
 );
 
@@ -316,7 +316,7 @@ CREATE TABLE IF NOT EXISTS analysis_documents (
   ocr_done INTEGER DEFAULT 0,
   r2_key TEXT,
   text_extracted TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(session_id) REFERENCES analysis_sessions(id)
 );
 
@@ -333,7 +333,7 @@ CREATE TABLE IF NOT EXISTS generated_documents (
   content_docx_r2_key TEXT,
   content_pdf_r2_key TEXT,
   status TEXT DEFAULT 'draft',
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT
 );
 
@@ -344,7 +344,7 @@ CREATE TABLE IF NOT EXISTS document_versions (
   content_r2_key TEXT,
   created_by TEXT NOT NULL,
   change_summary TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS document_comments (
@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS document_comments (
   mentions TEXT DEFAULT '[]',
   resolved INTEGER DEFAULT 0,
   parent_id TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT
 );
 
@@ -367,7 +367,7 @@ CREATE TABLE IF NOT EXISTS document_suggestions (
   suggested_text TEXT,
   author_id TEXT NOT NULL,
   status TEXT DEFAULT 'pending',
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ─── Epic 12: GED Cabinet ────────────────────────────────────────────────────
@@ -378,7 +378,7 @@ CREATE TABLE IF NOT EXISTS cabinet_dossiers (
   name TEXT NOT NULL,
   description TEXT,
   created_by TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS cabinet_documents (
@@ -396,7 +396,7 @@ CREATE TABLE IF NOT EXISTS cabinet_documents (
   ai_summary TEXT,
   indexed_qdrant INTEGER DEFAULT 0,
   uploaded_by TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT
 );
 
@@ -408,7 +408,7 @@ CREATE TABLE IF NOT EXISTS document_validations (
   validator_id TEXT,
   notes TEXT,
   client_message TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT
 );
 
@@ -423,7 +423,7 @@ CREATE TABLE IF NOT EXISTS partner_api_keys (
   scopes TEXT DEFAULT 'contracts:read nif:read compliance:read',
   is_sandbox INTEGER DEFAULT 0,
   is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS partner_tokens (
@@ -431,7 +431,7 @@ CREATE TABLE IF NOT EXISTS partner_tokens (
   client_id TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   scopes TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS partner_webhooks (
@@ -441,5 +441,5 @@ CREATE TABLE IF NOT EXISTS partner_webhooks (
   url TEXT NOT NULL,
   secret TEXT NOT NULL,
   is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

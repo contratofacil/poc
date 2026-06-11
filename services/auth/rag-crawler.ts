@@ -230,9 +230,17 @@ export async function indexDocuments(docs: CrawledDocument[], runId: string): Pr
       for (let i = 0; i < points.length; i++) {
         const id = crypto.randomUUID();
         await dbRun(
-          `INSERT OR REPLACE INTO legal_documents
+          `INSERT INTO legal_documents
              (id, source, external_id, title, url, content_chunk, chunk_index, qdrant_id, date, doc_type)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (source, external_id, chunk_index) DO UPDATE SET
+             title = excluded.title,
+             url = excluded.url,
+             content_chunk = excluded.content_chunk,
+             qdrant_id = excluded.qdrant_id,
+             date = excluded.date,
+             doc_type = excluded.doc_type,
+             indexed_at = CURRENT_TIMESTAMP`,
           [
             id,
             doc.source,
