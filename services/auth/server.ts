@@ -38,6 +38,7 @@ import { createEpic11Router, setupCollaborationSocket } from './routes/epic11-do
 import { createEpic12Router } from './routes/epic12-ged';
 import { createEpic13Router, buildOpenAPISpec } from './routes/epic13-api';
 import { createKycRouter } from './routes/kyc';
+import { createContactRouter } from './routes/contact';
 
 // Load environment variables
 dotenv.config();
@@ -2371,6 +2372,9 @@ app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(ADMIN_ROLES), 
 
 // ─── KYC / eIDV — vérification d'identité NIF (Lei 83/2017) ──────────────────
 app.use('/api/nif/kyc', createKycRouter());
+
+// ─── Formulaire de contact public ─────────────────────────────────────────────
+app.use('/api/contact', createContactRouter(authMiddleware, checkRole, ADMIN_ROLES));
 
 // ─── Epic 8: Extended Contract Templates ─────────────────────────────────────
 const epic8Router = createEpic8Router(authMiddleware, checkRole, logAudit);

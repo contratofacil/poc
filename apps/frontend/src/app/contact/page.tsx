@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { getLandingMessages } from "@/lib/landing/i18n";
 import { useLanguage } from "@/lib/lang/useLanguage";
+import { apiFetch } from "@/lib/api";
 
 const content = {
   en: {
@@ -34,6 +35,7 @@ const content = {
     submitBtn: "Send message",
     submittedTitle: "Message sent!",
     submittedBody: "We will reply within 24 working hours to the address provided.",
+    submitError: "Your message could not be sent. Please try again or email us directly.",
     infoTitle: "Other ways to reach us",
     emailLabel: "Email",
     emailValue: "support@easylaw.pt",
@@ -72,6 +74,7 @@ const content = {
     submitBtn: "Envoyer le message",
     submittedTitle: "Message envoyé !",
     submittedBody: "Nous vous répondrons dans les 24 heures ouvrées à l'adresse indiquée.",
+    submitError: "Votre message n'a pas pu être envoyé. Réessayez ou écrivez-nous directement par email.",
     infoTitle: "Autres façons de nous contacter",
     emailLabel: "Email",
     emailValue: "support@easylaw.pt",
@@ -110,6 +113,7 @@ const content = {
     submitBtn: "Enviar mensagem",
     submittedTitle: "Mensagem enviada!",
     submittedBody: "Responderemos nas 24 horas úteis seguintes para o endereço indicado.",
+    submitError: "Não foi possível enviar a sua mensagem. Tente novamente ou escreva-nos diretamente por email.",
     infoTitle: "Outras formas de nos contactar",
     emailLabel: "Email",
     emailValue: "support@easylaw.pt",
@@ -131,11 +135,26 @@ export default function ContactPage() {
   const t = content[lang] ?? content.pt;
 
   const [submitted, setSubmitted] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+  const [error, setError] = React.useState(false);
   const [form, setForm] = React.useState({ name: "", email: "", subject: "", message: "" });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
+    setSending(true);
+    setError(false);
+    try {
+      const res = await apiFetch("/api/contact", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSubmitted(true);
+    } catch {
+      setError(true);
+    } finally {
+      setSending(false);
+    }
   }
 
   const inputClass =
@@ -247,12 +266,18 @@ export default function ContactPage() {
                       className={`${inputClass} resize-none`}
                     />
                   </div>
+                  {error && (
+                    <p role="alert" className="text-sm" style={{ color: "var(--status-red)" }}>
+                      {t.submitError}
+                    </p>
+                  )}
                   <button
                     type="submit"
-                    className="w-full rounded-lg px-6 py-3 text-sm font-semibold"
+                    disabled={sending}
+                    className="w-full rounded-lg px-6 py-3 text-sm font-semibold disabled:opacity-60"
                     style={{ background: "var(--brand-secondary)", color: "var(--text-primary)" }}
                   >
-                    {t.submitBtn}
+                    {sending ? "…" : t.submitBtn}
                   </button>
                 </form>
               )}

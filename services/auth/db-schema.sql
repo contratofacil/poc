@@ -148,6 +148,18 @@ CREATE TABLE IF NOT EXISTS kyc_verifications (
     completed_at TEXT
 );
 
+-- Messages du formulaire de contact public (/contact).
+CREATE TABLE IF NOT EXISTS contact_messages (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    status TEXT DEFAULT 'new',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    handled_at TEXT
+);
+
 INSERT INTO clause_versions (id, contract_type, clause_key, content, loi_reference, valid_from, valid_to) VALUES
 ('1', 'Bail', 'loyer', 'Le loyer mensuel est fixé à {loyer} EUR.', 'Art. 1040 du Code Civil Portugais', '2026-01-01', ''),
 ('2', 'Bail', 'duree', 'Le bail est conclu pour une durée de {duree} mois.', 'Art. 1042 du Code Civil Portugais', '2026-01-01', ''),

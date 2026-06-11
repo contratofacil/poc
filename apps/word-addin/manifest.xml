@@ -21,7 +21,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="http://localhost:3002/taskpane.html"/>
+    <SourceLocation DefaultValue="https://localhost:3003/taskpane.html"/>
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -51,7 +51,7 @@
                   <Label resid="TaskpaneButton.Label"/>
                   <Supertip>
                     <Title resid="TaskpaneButton.SuperTipTitle"/>
-                    <Description resid="TaskpaneButton.SuperTipDescription"/>
+                    <Description resid="TaskpaneButton.TipDesc"/>
                   </Supertip>
                   <Icon>
                     <bt:Image size="16" resid="Icon.16x16"/>
@@ -78,8 +78,8 @@
       </bt:Images>
       <bt:Urls>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://easylaw.pt/docs/word-addin"/>
-        <bt:Url id="Commands.Url" DefaultValue="http://localhost:3002/commands.html"/>
-        <bt:Url id="Taskpane.Url" DefaultValue="http://localhost:3002/taskpane.html"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3003/commands.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3003/taskpane.html"/>
         <bt:Url id="LearnMore.Url" DefaultValue="https://easylaw.pt/docs/word-addin"/>
       </bt:Urls>
       <bt:ShortStrings>
@@ -90,7 +90,7 @@
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Activez le volet EasyLaw pour rédiger, corriger et adapter vos documents juridiques."/>
-        <bt:String id="TaskpaneButton.SuperTipDescription" DefaultValue="Ouvrez le volet EasyLaw pour utiliser l'assistant IA juridique directement dans Word."/>
+        <bt:String id="TaskpaneButton.TipDesc" DefaultValue="Ouvrez le volet EasyLaw pour utiliser l'assistant IA juridique directement dans Word."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
