@@ -68,7 +68,7 @@ function formatDate(iso: string, lang: string) {
 
 function ProfileContent() {
   const router = useRouter();
-  const { logout, getAccessToken } = useEasyLawAuth();
+  const { logout, getAccessToken, easyLawProfile, syncStatus } = useEasyLawAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [name, setName]         = useState("");
@@ -82,29 +82,48 @@ function ProfileContent() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // ── Fetch profile ────────────────────────────────────────────────────────────
+  // ── Utilise le profil EasyLaw déjà synchronisé par EasyLawUserContext ────────
+  // Évite un double appel API et résout le problème de timing en production.
   useEffect(() => {
+    if (easyLawProfile) {
+      setProfile(easyLawProfile as UserProfile);
+      setName(easyLawProfile.name ?? "");
+      const l = easyLawProfile.lang?.toUpperCase();
+      setLang(l === "PT" || l === "EN" ? l : "FR");
+      setIsLoading(false);
+      return;
+    }
+    // Fallback : si le contexte n'est pas encore prêt, on attend la fin de sync
+    if (syncStatus === "syncing") return;
+    if (syncStatus === "error" || syncStatus === "idle") {
+      // Tentative directe via l'API (cas edge: test-mode ou contexte non monté)
+      fetchProfileFromApi();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [easyLawProfile, syncStatus]);
+
+  // ── Fetch profile depuis l'API (fallback uniquement) ─────────────────────────
+  const fetchProfileFromApi = async () => {
     let cancelled = false;
-    (async () => {
-      try {
-        const token = await getAccessToken();
-        if (!token) { setIsLoading(false); return; }
-        const res = await apiFetch("/api/auth/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!cancelled && res.ok && data.success) {
-          setProfile(data.user);
-          setName(data.user.name ?? "");
-          const l = data.user.lang?.toUpperCase();
-          setLang(l === "PT" || l === "EN" ? l : "FR");
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+    try {
+      const token = await getAccessToken();
+      if (!token) { setIsLoading(false); return; }
+      const res = await apiFetch("/api/auth/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!cancelled && res.ok && data.success) {
+        setProfile(data.user);
+        setName(data.user.name ?? "");
+        const l = data.user.lang?.toUpperCase();
+        setLang(l === "PT" || l === "EN" ? l : "FR");
       }
-    })();
+    } finally {
+      if (!cancelled) setIsLoading(false);
+    }
     return () => { cancelled = true; };
-  }, [getAccessToken]);
+  };
+
 
   // ── Save changes ─────────────────────────────────────────────────────────────
   const handleSave = async (e: React.FormEvent) => {
