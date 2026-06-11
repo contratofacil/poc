@@ -10,6 +10,7 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import swaggerUi from 'swagger-ui-express';
 import { initDb, run, get, all, closeDb } from './db';
+import { isPrivyConfigured, verifyPrivyToken, resolvePrivyUser } from './privy';
 import { sendVerificationEmail } from './email';
 import { assertVaultConfig } from './storage/r2-client';
 import {
@@ -225,6 +226,33 @@ interface UserRow {
   deleted_at?: string | null;
 }
 
+// Résout un Bearer token en utilisateur local : JWT interne d'abord,
+// sinon token d'accès Privy (vérifié via JWKS, lié/provisionné par email).
+const resolveBearerUser = async (token: string): Promise<{ id: string; email: string; role: string } | null> => {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) { throw new Error('JWT_SECRET environment variable is required'); }
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as { id: string };
+    const user = await get<UserRow>(
+      'SELECT id, email, role, deleted_at FROM users WHERE id = ?',
+      [decoded.id]
+    );
+    if (user && !user.deleted_at) {
+      return { id: user.id, email: user.email, role: user.role };
+    }
+    return null;
+  } catch {
+    // Pas un JWT interne — on tente Privy.
+  }
+
+  if (!isPrivyConfigured()) return null;
+  const did = await verifyPrivyToken(token);
+  if (!did) return null;
+  const user = await resolvePrivyUser(did);
+  return user ? { id: user.id, email: user.email, role: user.role } : null;
+};
+
 // Authentication Middleware
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -234,25 +262,12 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return;
     }
     const token = authHeader.split(' ')[1];
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) { throw new Error('JWT_SECRET environment variable is required'); }
-    const decoded = jwt.verify(token, jwtSecret) as { id: string; email: string; role: string };
-    
-    // Verify user exists and is not deleted
-    const user = await get<UserRow>(
-      'SELECT id, email, role, deleted_at FROM users WHERE id = ?', 
-      [decoded.id]
-    );
-    if (!user || user.deleted_at) {
-      res.status(401).json({ success: false, message: 'User not found or account deleted' });
+    const user = await resolveBearerUser(token);
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Invalid or expired token' });
       return;
     }
-    
-    (req as any).user = {
-      id: user.id,
-      email: user.email,
-      role: user.role
-    };
+    (req as any).user = user;
     next();
   } catch (err) {
     res.status(401).json({ success: false, message: 'Invalid or expired token' });
@@ -267,16 +282,9 @@ export const optionalAuthMiddleware = async (req: Request, _res: Response, next:
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const jwtSecret = process.env.JWT_SECRET;
-      if (jwtSecret) {
-        const decoded = jwt.verify(token, jwtSecret) as { id: string };
-        const user = await get<UserRow>(
-          'SELECT id, email, role, deleted_at FROM users WHERE id = ?',
-          [decoded.id]
-        );
-        if (user && !user.deleted_at) {
-          (req as any).user = { id: user.id, email: user.email, role: user.role };
-        }
+      const user = await resolveBearerUser(token);
+      if (user) {
+        (req as any).user = user;
       }
     }
   } catch {

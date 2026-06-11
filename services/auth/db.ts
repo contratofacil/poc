@@ -36,6 +36,7 @@ function toPostgresParams(sql: string, params: any[]): { text: string; values: a
  */
 const ADD_COLUMN_MIGRATIONS: Array<{ table: string; column: string; sql: string }> = [
   { table: 'contracts', column: 'r2_key', sql: 'ALTER TABLE contracts ADD COLUMN r2_key TEXT' },
+  { table: 'users', column: 'privy_did', sql: 'ALTER TABLE users ADD COLUMN privy_did TEXT' },
 ];
 
 async function runAdditiveMigrations(): Promise<void> {
