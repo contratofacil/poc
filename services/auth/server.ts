@@ -1394,60 +1394,77 @@ function isQueryInScope(query: string): boolean {
   return hasLegalKeyword;
 }
 
-function getRAGResponse(query: string): { response: string; source: string } {
+function getRAGResponse(query: string, lang: string = 'PT'): { response: string; source: string } {
   const lowercase = query.toLowerCase();
+  const isFR = lang === 'FR';
 
   if (lowercase.includes('nif') || lowercase.includes('fiscal') || lowercase.includes('finanças')) {
     return {
-      response: "Para obter o NIF (Número de Identificação Fiscal) em Portugal, a EasyLaw disponibiliza um processo online sob a supervisão do gabinete Oliveira & Cameiro. Ajudamos a submeter os documentos (passaporte e comprovativo de morada), a obter a representação fiscal para não residentes e a registar-se junto da Autoridade Tributária e Aduaneira (AT).",
+      response: isFR
+        ? "Pour obtenir le NIF (Numéro d'Identification Fiscale) au Portugal, EasyLaw propose un processus en ligne sous la supervision du cabinet Oliveira & Cameiro. Nous vous aidons à soumettre vos documents (passeport et justificatif de domicile), à obtenir une représentation fiscale pour les non-résidents et à vous enregistrer auprès de l'Autoridade Tributária e Aduaneira (AT)."
+        : "Para obter o NIF (Número de Identificação Fiscal) em Portugal, a EasyLaw disponibiliza um processo online sob a supervisão do gabinete Oliveira & Cameiro. Ajudamos a submeter os documentos (passaporte e comprovativo de morada), a obter a representação fiscal para não residentes e a registar-se junto da Autoridade Tributária e Aduaneira (AT).",
       source: "Manual de Acolhimento AT & Portal das Finanças / EasyLaw NIF Starter Pack"
     };
   }
 
   if (lowercase.includes('arrendamento') || lowercase.includes('bail') || lowercase.includes('lease') || lowercase.includes('rent') || lowercase.includes('loyer')) {
     return {
-      response: "Os contratos de arrendamento urbano habitacional em Portugal são regidos pelo Novo Regime do Arrendamento Urbano (NRAU) e pelo Código Civil. A legislação estipula limites e regras para a atualização da renda (comunicação prévia por escrito com antecedência), prazos mínimos de denúncia e rescisão contratual para senhorios e inquilinos.",
+      response: isFR
+        ? "Les contrats de bail urbain résidentiel au Portugal sont régis par le Nouveau Régime du Bail Urbain (NRAU) et par le Code Civil. La loi prévoit des limites et règles pour la révision des loyers (notification préalable par écrit), ainsi que des délais minimaux de résiliation pour les propriétaires et les locataires."
+        : "Os contratos de arrendamento urbano habitacional em Portugal são regidos pelo Novo Regime do Arrendamento Urbano (NRAU) e pelo Código Civil. A legislação estipula limites e regras para a atualização da renda (comunicação prévia por escrito com antecedência), prazos mínimos de denúncia e rescisão contratual para senhorios e inquilinos.",
       source: "Lei n.º 6/2006 (NRAU) e Artigo 1040.º do Código Civil Português"
     };
   }
 
   if (lowercase.includes('trabalho') || lowercase.includes('trabalhador') || lowercase.includes('employment') || lowercase.includes('cdd') || lowercase.includes('cdi') || lowercase.includes('salário') || lowercase.includes('salaire')) {
     return {
-      response: "Os contratos de trabalho (a termo resolutivo CDD ou por tempo indeterminado CDI) estão sob a égide do Código do Trabalho (Lei n.º 7/2009). Esta lei regula matérias como o período experimental (geralmente de 90 a 180 dias), os limites de horário de trabalho, direitos a férias e os procedimentos legais obrigatórios para cessação de contrato.",
+      response: isFR
+        ? "Les contrats de travail (à durée déterminée CDD ou indéterminée CDI) sont encadrés par le Code du Travail portugais (Lei n.º 7/2009). Cette loi réglemente la période d'essai (généralement 90 à 180 jours), les limites d'heures de travail, les droits aux congés et les procédures légales obligatoires de rupture de contrat."
+        : "Os contratos de trabalho (a termo resolutivo CDD ou por tempo indeterminado CDI) estão sob a égide do Código do Trabalho (Lei n.º 7/2009). Esta lei regula matérias como o período experimental (geralmente de 90 a 180 dias), os limites de horário de trabalho, direitos a férias e os procedimentos legais obrigatórios para cessação de contrato.",
       source: "Código do Trabalho (Lei n.º 7/2009) de Portugal"
     };
   }
 
   if (lowercase.includes('chave móvel') || lowercase.includes('cmd') || lowercase.includes('assinatura') || lowercase.includes('signature')) {
     return {
-      response: "A Chave Móvel Digital (CMD) é o meio oficial do Estado Português para autenticação e assinatura eletrónica de documentos. Está em total conformidade com o Regulamento Europeu eIDAS (nível Avançado), permitindo assinar contratos com força probatória plena, conforme o Decreto-Lei n.º 12/2021.",
+      response: isFR
+        ? "La Chave Móvel Digital (CMD) est le moyen officiel de l'État portugais pour l'authentification et la signature électronique de documents. Elle est entièrement conforme au Règlement Européen eIDAS (niveau Avancé), permettant de signer des contrats avec pleine valeur probatoire, conformément au Décret-Loi n.º 12/2021."
+        : "A Chave Móvel Digital (CMD) é o meio oficial do Estado Português para autenticação e assinatura eletrónica de documentos. Está em total conformidade com o Regulamento Europeu eIDAS (nível Avançado), permitindo assinar contratos com força probatória plena, conforme o Decreto-Lei n.º 12/2021.",
       source: "Decreto-Lei n.º 12/2021 e Regulamento eIDAS (UE) n.º 910/2014"
     };
   }
 
   if (lowercase.includes('oliveira') || lowercase.includes('cameiro') || lowercase.includes('lawyer') || lowercase.includes('avocat') || lowercase.includes('advogado')) {
     return {
-      response: "O gabinete Oliveira & Cameiro Advogados Associados, com sede no Porto, é o parceiro legal exclusivo da EasyLaw. Os seus advogados supervisionam e validam as bases de conhecimento da nossa IA e assumem a prestação de assessoria jurídica personalizada em casos complexos escalados através da nossa plataforma.",
+      response: isFR
+        ? "Le cabinet Oliveira & Cameiro Advogados Associados, basé à Porto, est le partenaire légal exclusif d'EasyLaw. Ses avocats supervisent et valident les bases de connaissances de notre IA et assurent la prestation de conseils juridiques personnalisés dans les cas complexes escaladés via notre plateforme."
+        : "O gabinete Oliveira & Cameiro Advogados Associados, com sede no Porto, é o parceiro legal exclusivo da EasyLaw. Os seus advogados supervisionam e validam as bases de conhecimento da nossa IA e assumem a prestação de assessoria jurídica personalizada em casos complexos escalados através da nossa plataforma.",
       source: "Estatuto da Ordem dos Advogados (Lei n.º 145/2015) & EasyLaw Partner Agreement"
     };
   }
 
   if (lowercase.includes('visto') || lowercase.includes('visa') || lowercase.includes('sef') || lowercase.includes('residência')) {
     return {
-      response: "Portugal disponibiliza vários tipos de vistos e autorizações de residência, incluindo o Visto D7 (para reformados e titulares de rendimentos próprios), o Visto D8 (nómadas digitais) e vistos de trabalho/empreendedorismo. A transição dos processos é feita com a colaboração do nosso gabinete jurídico parceiro para assegurar a conformidade perante a AIMA (antigo SEF).",
+      response: isFR
+        ? "Le Portugal propose plusieurs types de visas et titres de séjour, notamment le Visa D7 (pour les retraités et titulaires de revenus propres), le Visa D8 (nomades numériques) et des visas de travail/entrepreneuriat. La transition des dossiers se fait avec la collaboration de notre cabinet partenaire pour assurer la conformité auprès de l'AIMA (ancien SEF)."
+        : "Portugal disponibiliza vários tipos de vistos e autorizações de residência, incluindo o Visto D7 (para reformados e titulares de rendimentos próprios), o Visto D8 (nómadas digitais) e vistos de trabalho/empreendedorismo. A transição dos processos é feita com a colaboração do nosso gabinete jurídico parceiro para assegurar a conformidade perante a AIMA (antigo SEF).",
       source: "Lei n.º 23/2007 (Lei de Estrangeiros) de Portugal"
     };
   }
 
   if (lowercase.includes('empresa') || lowercase.includes('société') || lowercase.includes('lda') || lowercase.includes('unipessoal')) {
     return {
-      response: "A constituição de sociedades comerciais em Portugal (seja Lda., Unipessoal Lda. ou S.A.) é regida pelo Código das Sociedades Comerciais. O processo pode ser realizado online através do serviço 'Empresa na Hora', requerendo a aprovação da firma (admissibilidade de nome) e o depósito do capital social inicial.",
+      response: isFR
+        ? "La constitution de sociétés commerciales au Portugal (Lda., Unipessoal Lda. ou S.A.) est régie par le Code des Sociétés Commerciales. La procédure peut s'effectuer en ligne via le service « Empresa na Hora », nécessitant l'approbation de la dénomination sociale et le dépôt du capital social initial."
+        : "A constituição de sociedades comerciais em Portugal (seja Lda., Unipessoal Lda. ou S.A.) é regida pelo Código das Sociedades Comerciais. O processo pode ser realizado online através do serviço 'Empresa na Hora', requerendo a aprovação da firma (admissibilidade de nome) e o depósito do capital social inicial.",
       source: "Código das Sociedades Comerciais (Decreto-Lei n.º 262/86)"
     };
   }
 
   return {
-    response: "Como assistente virtual Luso-Legal da EasyLaw, posso esclarecer que as matérias jurídicas em Portugal estão sujeitas ao direito nacional português e às diretivas/regulamentos da União Europeia. Para obter respostas precisas sobre o seu caso específico de arrendamento, NIF ou contratos, pode utilizar as nossas ferramentas de geração ou solicitar a escalada direta para um advogado do gabinete Oliveira & Cameiro.",
+    response: isFR
+      ? "En tant qu'assistant juridique Luso-Legal d'EasyLaw, je peux vous informer que les matières juridiques au Portugal sont soumises au droit national portugais et aux directives/règlements de l'Union Européenne. Pour obtenir des réponses précises sur votre situation spécifique (bail, NIF ou contrats), vous pouvez utiliser nos outils de génération ou demander une escalade directe vers un avocat du cabinet Oliveira & Cameiro."
+      : "Como assistente virtual Luso-Legal da EasyLaw, posso esclarecer que as matérias jurídicas em Portugal estão sujeitas ao direito nacional português e às diretivas/regulamentos da União Europeia. Para obter respostas precisas sobre o seu caso específico de arrendamento, NIF ou contratos, pode utilizar as nossas ferramentas de geração ou solicitar a escalada direta para um advogado do gabinete Oliveira & Cameiro.",
     source: "EasyLaw Luso-Legal Knowledge Base (Direito Português e Comunitário)"
   };
 }
@@ -1455,7 +1472,7 @@ function getRAGResponse(query: string): { response: string; source: string } {
 // POST /api/assistant/chat
 app.post('/api/assistant/chat', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { message } = req.body;
+    const { message, lang = 'PT' } = req.body;
     if (!message || typeof message !== 'string' || message.trim() === '') {
       res.status(400).json({ success: false, message: 'Message is required' });
       return;
@@ -1465,10 +1482,13 @@ app.post('/api/assistant/chat', authMiddleware, async (req: Request, res: Respon
     const inScope = isQueryInScope(message);
 
     if (!inScope) {
+      const outOfScopeMsg = lang === 'FR'
+        ? "Je ne peux répondre qu'aux questions relatives au droit portugais, européen ou à des sujets juridiques généraux. Votre demande semble hors périmètre. Comment puis-je vous aider concernant la législation portugaise aujourd'hui ?"
+        : "Só posso responder a questões relacionadas com o direito português, europeu ou temas jurídicos gerais. O seu pedido parece estar fora do âmbito. Como posso ajudá-lo com a legislação portuguesa hoje?";
       res.status(200).json({
         success: true,
         inScope: false,
-        response: 'Je ne peux répondre qu\'aux questions relatives au droit portugais, européen ou à des sujets juridiques généraux. Votre demande semble hors périmètre. Comment puis-je vous aider concernant la législation portugaise aujourd\'hui ?',
+        response: outOfScopeMsg,
         source: 'Scope Guardrail'
       });
       return;
@@ -1477,7 +1497,7 @@ app.post('/api/assistant/chat', authMiddleware, async (req: Request, res: Respon
     const systemPromptRow = await get<{ value: string }>('SELECT value FROM system_settings WHERE key = ?', ['assistant_system_prompt']);
     const systemPrompt = systemPromptRow ? systemPromptRow.value : 'Vous êtes Luso-Legal, assistant juridique...';
 
-    let { response, source } = getRAGResponse(message);
+    let { response, source } = getRAGResponse(message, lang);
     const lowercaseQuery = message.toLowerCase();
     if (lowercaseQuery.includes('system prompt') || lowercaseQuery.includes('instructions') || lowercaseQuery.includes('consignes') || lowercaseQuery.includes('qui es-tu') || lowercaseQuery.includes('quem és')) {
       response = `[Luso-Legal] Mes consignes système actives : "${systemPrompt}"`;

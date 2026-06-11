@@ -154,7 +154,7 @@ function AssistantPageContent() {
       const res = await fetch(getApiUrl("/api/assistant/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, lang }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
