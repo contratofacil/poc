@@ -17,7 +17,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider
       appId={PRIVY_APP_ID}
-      clientId={PRIVY_CLIENT_ID}
+      clientId={PRIVY_CLIENT_ID || undefined}
       config={privyConfig}
     >
       {children}

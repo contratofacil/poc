@@ -36,6 +36,7 @@ import { createEpic10Router } from './routes/epic10-analysis';
 import { createEpic11Router, setupCollaborationSocket } from './routes/epic11-documents';
 import { createEpic12Router } from './routes/epic12-ged';
 import { createEpic13Router, buildOpenAPISpec } from './routes/epic13-api';
+import { createKycRouter } from './routes/kyc';
 
 // Load environment variables
 dotenv.config();
@@ -256,6 +257,32 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   } catch (err) {
     res.status(401).json({ success: false, message: 'Invalid or expired token' });
   }
+};
+
+// Auth optionnelle — décode le token s'il est présent, sinon continue en anonyme.
+// Utilisé par le funnel NIF public : /api/nif/apply accepte déjà les anonymes,
+// l'upload des pièces doit suivre la même règle (user_id null en POC).
+export const optionalAuthMiddleware = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const jwtSecret = process.env.JWT_SECRET;
+      if (jwtSecret) {
+        const decoded = jwt.verify(token, jwtSecret) as { id: string };
+        const user = await get<UserRow>(
+          'SELECT id, email, role, deleted_at FROM users WHERE id = ?',
+          [decoded.id]
+        );
+        if (user && !user.deleted_at) {
+          (req as any).user = { id: user.id, email: user.email, role: user.role };
+        }
+      }
+    }
+  } catch {
+    // Token invalide → traité comme anonyme, pas comme une erreur
+  }
+  next();
 };
 
 // RBAC Middleware
@@ -758,7 +785,8 @@ const nifUploadSchema = z.object({
 });
 
 // POST /api/nif/upload — create a vault_documents row and return a presigned PUT URL
-app.post('/api/nif/upload', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+// Auth optionnelle : le funnel NIF est public (cohérent avec /api/nif/apply).
+app.post('/api/nif/upload', optionalAuthMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = nifUploadSchema.safeParse(req.body || {});
     if (!parsed.success) {
@@ -769,10 +797,11 @@ app.post('/api/nif/upload', authMiddleware, async (req: Request, res: Response):
       return;
     }
     const { filename, mime_type, entity_id } = parsed.data;
-    const userId = (req as any).user.id;
+    const userId: string | null = (req as any).user?.id ?? null;
 
     const result = await prepareUpload({
-      user_id: userId,
+      // Visiteur anonyme (funnel public) : clé R2 sous le segment 'anonymous'
+      user_id: userId ?? 'anonymous',
       entity_type: 'nif_piece',
       entity_id: entity_id ?? null,
       filename: filename || 'document.pdf',
@@ -2331,6 +2360,9 @@ app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(ADMIN_ROLES), 
   );
   res.json({ success: true, message: `Indexing triggered for ${source ?? 'ALL'} sources` });
 });
+
+// ─── KYC / eIDV — vérification d'identité NIF (Lei 83/2017) ──────────────────
+app.use('/api/nif/kyc', createKycRouter());
 
 // ─── Epic 8: Extended Contract Templates ─────────────────────────────────────
 const epic8Router = createEpic8Router(authMiddleware, checkRole, logAudit);

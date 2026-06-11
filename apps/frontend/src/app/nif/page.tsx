@@ -36,15 +36,16 @@ const CLS_INPUT = [
 // ─── Stepper helpers ──────────────────────────────────────────────────────────
 
 const STEPPER_LABELS: Record<Lang, readonly string[]> = {
-  FR: ["Informations", "Documents", "Procuration", "Paiement"],
-  PT: ["Informações", "Documentos", "Procuração", "Pagamento"],
+  FR: ["Informations", "Documents", "Identité", "Procuration", "Paiement"],
+  PT: ["Informações", "Documentos", "Identidade", "Procuração", "Pagamento"],
 };
 
 function getStepperIdx(step: number): number {
   if (step <= 1) return 1;
   if (step <= 2) return 2;
   if (step <= 3) return 3;
-  return 4;
+  if (step <= 4) return 4;
+  return 5;
 }
 
 // ─── Translations ─────────────────────────────────────────────────────────────
@@ -57,6 +58,13 @@ type T = {
   step1Title: string; step1Sub: string;
   fullNameLabel: string; birthdateLabel: string; nationalityLabel: string; residenceLabel: string;
   step2Title: string; step2Sub: string;
+  kycTitle: string; kycSub: string;
+  kycCardTitle: string; kycCardBody: string;
+  kycStart: string; kycVerifying: string; kycRetry: string;
+  kycVerified: string; kycVerifiedSub: string;
+  kycUnderReview: string; kycUnderReviewSub: string;
+  kycFailed: string; kycFailedSub: string;
+  kycDisclaimer: string; kycSimNote: string; kycRequiredHint: string;
   passportLabel: string; passportHint: string;
   addressLabel: string; addressHint: string; addressSub: string;
   dropZone: string; dropZoneSub: string;
@@ -79,7 +87,7 @@ const translations: Record<Lang, T> = {
   FR: {
     breadcrumb: "/ Nouveau dossier NIF",
     draftSaved: "Brouillon sauvegardé · il y a 3s",
-    stepOf: (s) => `Étape ${s} sur 4`,
+    stepOf: (s) => `Étape ${s} sur 5`,
     timeEstimate: "Comptez environ 8 minutes au total",
     step1Title: "Vos informations personnelles.",
     step1Sub: "Ces informations figureront dans votre dossier NIF transmis aux Finanças.",
@@ -99,6 +107,22 @@ const translations: Record<Lang, T> = {
     ocrBadge: "Qualité OCR validée",
     replace: "Remplacer",
     uploaded: "Téléversé",
+    kycTitle: "Vérification d'identité.",
+    kycSub: "Une vérification automatisée rapide : votre passeport est comparé à un selfie pour confirmer votre identité avant la transmission du dossier au cabinet.",
+    kycCardTitle: "Vérification biométrique",
+    kycCardBody: "Prenez un selfie : il sera comparé automatiquement à la photo de votre passeport. L'opération prend moins d'une minute.",
+    kycStart: "Lancer la vérification",
+    kycVerifying: "Vérification en cours...",
+    kycRetry: "Réessayer",
+    kycVerified: "Identité vérifiée",
+    kycVerifiedSub: "Votre identité a été confirmée. Vous pouvez poursuivre votre dossier.",
+    kycUnderReview: "Vérification en cours d'examen",
+    kycUnderReviewSub: "Votre dossier nécessite un examen complémentaire par notre cabinet. Vous serez contacté par e-mail sous 24h — il n'est pas nécessaire de soumettre à nouveau.",
+    kycFailed: "Vérification échouée",
+    kycFailedSub: "La comparaison n'a pas pu confirmer votre identité. Vérifiez que votre passeport est lisible, puis réessayez.",
+    kycDisclaimer: "Cette vérification protège votre dossier et respecte la législation portugaise anti-blanchiment. Vos données sont conservées 7 ans (Lei 83/2017).",
+    kycSimNote: "Mode démonstration : la vérification est simulée (POC).",
+    kycRequiredHint: "La vérification d'identité est requise pour continuer.",
     infoBlockTitle: "Pourquoi ce document ?",
     infoBlockBody: "Le justificatif est requis par les Finanças pour confirmer votre résidence fiscale. Sans lui, la demande est automatiquement rejetée.",
     trust1: "Chiffrement AES-256 au repos",
@@ -136,7 +160,7 @@ const translations: Record<Lang, T> = {
   PT: {
     breadcrumb: "/ Novo processo NIF",
     draftSaved: "Rascunho guardado · há 3s",
-    stepOf: (s) => `Etapa ${s} de 4`,
+    stepOf: (s) => `Etapa ${s} de 5`,
     timeEstimate: "Cerca de 8 minutos no total",
     step1Title: "As suas informações pessoais.",
     step1Sub: "Estas informações constarão do seu processo NIF transmitido às Finanças.",
@@ -156,6 +180,22 @@ const translations: Record<Lang, T> = {
     ocrBadge: "Qualidade OCR validada",
     replace: "Substituir",
     uploaded: "Carregado",
+    kycTitle: "Verificação de identidade.",
+    kycSub: "Uma verificação automatizada rápida: o seu passaporte é comparado com uma selfie para confirmar a sua identidade antes da transmissão do processo ao gabinete.",
+    kycCardTitle: "Verificação biométrica",
+    kycCardBody: "Tire uma selfie: será comparada automaticamente com a fotografia do seu passaporte. A operação demora menos de um minuto.",
+    kycStart: "Iniciar a verificação",
+    kycVerifying: "Verificação em curso...",
+    kycRetry: "Tentar novamente",
+    kycVerified: "Identidade verificada",
+    kycVerifiedSub: "A sua identidade foi confirmada. Pode prosseguir com o seu processo.",
+    kycUnderReview: "Verificação em análise",
+    kycUnderReviewSub: "O seu processo necessita de uma análise complementar pelo nosso gabinete. Será contactado por e-mail em 24h — não é necessário submeter novamente.",
+    kycFailed: "Verificação falhou",
+    kycFailedSub: "A comparação não conseguiu confirmar a sua identidade. Verifique se o passaporte está legível e tente novamente.",
+    kycDisclaimer: "Esta verificação protege o seu processo e respeita a legislação portuguesa contra o branqueamento de capitais. Os seus dados são conservados durante 7 anos (Lei 83/2017).",
+    kycSimNote: "Modo de demonstração: a verificação é simulada (POC).",
+    kycRequiredHint: "A verificação de identidade é necessária para continuar.",
     infoBlockTitle: "Porquê este documento?",
     infoBlockBody: "O comprovativo é exigido pelas Finanças para confirmar a sua residência fiscal. Sem ele, o pedido é automaticamente rejeitado.",
     trust1: "Encriptação AES-256 em repouso",
@@ -194,12 +234,17 @@ const translations: Record<Lang, T> = {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type KycStatus = "idle" | "verifying" | "verified" | "under_review" | "failed";
+
 export default function NifWizardPage() {
   const [lang, setLang] = useState<Lang>("FR");
-  // Internal steps: 1=Informations, 2=Documents, 3=Procuration, 4=Review, 5=Payment, 6=Success
+  // Internal steps: 1=Informations, 2=Documents, 3=Identité (KYC), 4=Procuration, 5=Review, 6=Payment, 7=Success
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // KYC / eIDV — étape 2.5 obligatoire (Lei 83/2017) entre documents et procuration
+  const [kycStatus, setKycStatus] = useState<KycStatus>("idle");
 
   const [formData, setFormData] = useState({
     fullname: "",
@@ -296,8 +341,39 @@ export default function NifWizardPage() {
   const handleNext = () => {
     if (step === 1 && !validateStep1()) return;
     if (step === 2 && !validateStep2()) return;
+    if (step === 3 && kycStatus !== "verified") {
+      setError(t.kycRequiredHint);
+      return;
+    }
     setError(null);
     setStep((prev) => prev + 1);
+  };
+
+  const startKycVerification = async () => {
+    setKycStatus("verifying");
+    setError(null);
+    try {
+      const startRes = await fetch(getApiUrl("/api/nif/kyc/start"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullname: formData.fullname }),
+      });
+      if (!startRes.ok) throw new Error("KYC start failed");
+      const { kycId } = await startRes.json();
+
+      // Simule la capture selfie + liveness côté client (POC)
+      await new Promise((r) => setTimeout(r, 1500));
+
+      const submitRes = await fetch(getApiUrl(`/api/nif/kyc/${kycId}/submit`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!submitRes.ok) throw new Error("KYC submit failed");
+      const { userFacingStatus } = await submitRes.json();
+      setKycStatus(userFacingStatus as KycStatus);
+    } catch {
+      setKycStatus("failed");
+    }
   };
 
   const handlePrev = () => {
@@ -315,7 +391,7 @@ export default function NifWizardPage() {
         body: JSON.stringify(formData),
       });
       if (!response.ok) throw new Error("Application submission failed");
-      setStep(5);
+      setStep(6);
     } catch {
       setError(t.submitError);
     } finally {
@@ -333,7 +409,7 @@ export default function NifWizardPage() {
     setError(null);
     setTimeout(() => {
       setIsLoading(false);
-      setStep(6);
+      setStep(7);
     }, 1500);
   };
 
@@ -343,7 +419,7 @@ export default function NifWizardPage() {
     <div className="min-h-screen bg-surface-page">
 
       {/* Top bar */}
-      {step < 6 && (
+      {step < 7 && (
         <header className="border-b border-surface-mist bg-surface-card">
           <div className="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -375,7 +451,7 @@ export default function NifWizardPage() {
       )}
 
       {/* Stepper */}
-      {step < 6 && (
+      {step < 7 && (
         <div className="border-b border-surface-mist bg-surface-card">
           <div className="max-w-[920px] mx-auto px-6 py-5">
             <div className="flex items-center justify-between mb-3 text-xs text-text-muted">
@@ -383,7 +459,7 @@ export default function NifWizardPage() {
               <span>{t.timeEstimate}</span>
             </div>
             <div className="flex items-center gap-2">
-              {([1, 2, 3, 4] as const).map((i) => (
+              {([1, 2, 3, 4, 5] as const).map((i) => (
                 <div
                   key={i}
                   className="flex-1 h-1.5 rounded-full transition-colors duration-300"
@@ -391,7 +467,7 @@ export default function NifWizardPage() {
                 />
               ))}
             </div>
-            <div className="grid grid-cols-4 gap-2 mt-2 text-[11px]">
+            <div className="grid grid-cols-5 gap-2 mt-2 text-[11px]">
               {labels.map((label, i) => {
                 const idx = i + 1;
                 const isDone = stepperIdx > idx;
@@ -547,8 +623,91 @@ export default function NifWizardPage() {
           </>
         )}
 
-        {/* ── Step 3: Procuration ─────────────────────────────────────────── */}
+        {/* ── Step 3: Vérification d'identité (KYC/eIDV — Lei 83/2017) ────── */}
         {step === 3 && (
+          <>
+            <h1 className="text-3xl md:text-4xl mb-3">{t.kycTitle}</h1>
+            <p className="text-text-secondary text-lg leading-relaxed mb-8">{t.kycSub}</p>
+
+            {kycStatus === "verified" ? (
+              <div className="rounded-xl border p-6 mb-6 flex items-start gap-4"
+                style={{ background: "var(--status-green-bg)", borderColor: "var(--status-green-border)" }}>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border"
+                  style={{ background: "var(--surface-card)", borderColor: "var(--status-green-border)" }}>
+                  <Check className="w-5 h-5" style={{ color: "var(--status-green)" }} />
+                </div>
+                <div>
+                  <p className="font-semibold mb-1" style={{ color: "var(--status-green)" }}>{t.kycVerified}</p>
+                  <p className="text-sm text-text-secondary">{t.kycVerifiedSub}</p>
+                </div>
+              </div>
+            ) : kycStatus === "under_review" ? (
+              <div className="rounded-xl border p-6 mb-6 flex items-start gap-4"
+                style={{ background: "var(--status-amber-bg)", borderColor: "var(--status-amber-border)" }}>
+                <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" style={{ color: "var(--status-amber)" }} />
+                <div>
+                  <p className="font-semibold mb-1" style={{ color: "var(--status-amber)" }}>{t.kycUnderReview}</p>
+                  <p className="text-sm text-text-secondary">{t.kycUnderReviewSub}</p>
+                </div>
+              </div>
+            ) : kycStatus === "failed" ? (
+              <div className="rounded-xl border p-6 mb-6"
+                style={{ background: "var(--status-red-bg)", borderColor: "var(--status-red-border)" }}>
+                <div className="flex items-start gap-4 mb-4">
+                  <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" style={{ color: "var(--status-red)" }} />
+                  <div>
+                    <p className="font-semibold mb-1" style={{ color: "var(--status-red)" }}>{t.kycFailed}</p>
+                    <p className="text-sm text-text-secondary">{t.kycFailedSub}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={startKycVerification} className={CLS_BTN_PRIMARY}>
+                  {t.kycRetry}
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-surface-mist bg-surface-card p-6 shadow-card mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-surface-page flex items-center justify-center flex-shrink-0">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+                      className="text-text-muted">
+                      <rect x="3" y="4" width="18" height="16" rx="2" />
+                      <circle cx="9" cy="11" r="2.5" />
+                      <path d="M5.5 18c.8-2 2-3 3.5-3s2.7 1 3.5 3" />
+                      <line x1="15" y1="9" x2="19" y2="9" />
+                      <line x1="15" y1="13" x2="19" y2="13" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-text-primary mb-1">{t.kycCardTitle}</p>
+                    <p className="text-sm text-text-secondary mb-4">{t.kycCardBody}</p>
+                    <button
+                      type="button"
+                      onClick={startKycVerification}
+                      disabled={kycStatus === "verifying"}
+                      className={CLS_BTN_PRIMARY}
+                    >
+                      {kycStatus === "verifying" ? t.kycVerifying : t.kycStart}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Disclaimer légal obligatoire (EXPERIENCE.md §AML/KYC) */}
+            <p className="text-sm text-text-muted mb-2">{t.kycDisclaimer}</p>
+            <p className="text-xs text-text-muted mb-8 italic">{t.kycSimNote}</p>
+
+            <NavFooter step={step} onPrev={handlePrev} onNext={handleNext} t={t}
+              nextLabel={t.continue}
+              nextDisabled={kycStatus !== "verified"} />
+            {kycStatus !== "verified" && kycStatus !== "under_review" && (
+              <p className="text-xs text-text-muted mt-3 text-right">{t.kycRequiredHint}</p>
+            )}
+          </>
+        )}
+
+        {/* ── Step 4: Procuration ─────────────────────────────────────────── */}
+        {step === 4 && (
           <>
             <h1 className="text-3xl md:text-4xl mb-3">{t.step3Title}</h1>
             <p className="text-text-secondary text-lg leading-relaxed mb-8">{t.step3Sub}</p>
@@ -579,8 +738,8 @@ export default function NifWizardPage() {
           </>
         )}
 
-        {/* ── Step 4: Review ──────────────────────────────────────────────── */}
-        {step === 4 && (
+        {/* ── Step 5: Review ──────────────────────────────────────────────── */}
+        {step === 5 && (
           <>
             <h1 className="text-3xl md:text-4xl mb-3">{t.reviewTitle}</h1>
             <p className="text-text-secondary text-lg leading-relaxed mb-8">{t.reviewSub}</p>
@@ -615,8 +774,8 @@ export default function NifWizardPage() {
           </>
         )}
 
-        {/* ── Step 5: Payment ─────────────────────────────────────────────── */}
-        {step === 5 && (
+        {/* ── Step 6: Payment ─────────────────────────────────────────────── */}
+        {step === 6 && (
           <>
             <h1 className="text-3xl md:text-4xl mb-3">{t.paymentTitle}</h1>
             <p className="text-text-secondary text-lg leading-relaxed mb-6">{t.paymentSub}</p>
@@ -662,8 +821,8 @@ export default function NifWizardPage() {
           </>
         )}
 
-        {/* ── Step 6: Success ─────────────────────────────────────────────── */}
-        {step === 6 && (
+        {/* ── Step 7: Success ─────────────────────────────────────────────── */}
+        {step === 7 && (
           <div className="text-center py-16">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border"
               style={{ background: "var(--status-green-bg)", borderColor: "var(--status-green-border)" }}>

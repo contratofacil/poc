@@ -5,31 +5,35 @@ import { Shield } from "lucide-react";
 
 const STORAGE_KEY = "easylaw_eidv_provider";
 
+// Décision OQ-007 (2026-06-11) : Veriff retenu pour la production — société UE
+// (Estonie), eIDV + liveness + screening PEP/sanctions, self-serve à faible volume.
+// "Privy KYC" retiré : privy.io n'offre pas de produit eIDV autonome (son API
+// "KYC" ne couvre que le statut des onramps fiat via Bridge).
 const PROVIDERS = [
-  {
-    id: "onfido",
-    name: "Onfido",
-    tagline: "Vérification documentaire et biométrique, couverture mondiale.",
-    recommended: false,
-  },
   {
     id: "veriff",
     name: "Veriff",
-    tagline: "Décision automatisée en quelques secondes, conforme AML5.",
+    tagline: "eIDV + liveness + screening PEP/sanctions. Société UE, conforme AML5, self-serve.",
+    recommended: true,
+  },
+  {
+    id: "onfido",
+    name: "Onfido (Entrust)",
+    tagline: "Vérification documentaire et biométrique, couverture mondiale. Avantageux à fort volume.",
     recommended: false,
   },
   {
-    id: "privy-kyc",
-    name: "Privy KYC",
-    tagline: "Intégration native avec votre compte EasyLaw et wallet embarqué.",
-    recommended: true,
+    id: "mock",
+    name: "Simulation (POC)",
+    tagline: "Driver de démonstration — décision simulée, aucune donnée transmise à un tiers.",
+    recommended: false,
   },
 ] as const;
 
 type ProviderId = (typeof PROVIDERS)[number]["id"];
 
 export function EidvProviderSelector() {
-  const [selected, setSelected] = React.useState<ProviderId>("privy-kyc");
+  const [selected, setSelected] = React.useState<ProviderId>("veriff");
 
   React.useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as ProviderId | null;

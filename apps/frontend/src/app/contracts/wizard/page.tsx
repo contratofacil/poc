@@ -78,6 +78,11 @@ function WizardForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedContractId, setGeneratedContractId] = useState<string | null>(null);
   const [compiledContent, setCompiledContent] = useState<string>("");
+  // Mitigation responsabilité civile (EXPERIENCE.md §Contract Liability) :
+  // les deux déclarations sont légalement requises avant exécution du service
+  // (Dir. 2011/83/UE art. 16(m) pour la renonciation au droit de rétractation).
+  const [confirmAccuracy, setConfirmAccuracy] = useState(false);
+  const [waiveWithdrawal, setWaiveWithdrawal] = useState(false);
 
   const { getAccessToken } = useEasyLawAuth();
 
@@ -126,6 +131,14 @@ function WizardForm() {
     if (currentStep < totalSteps) {
       setCurrentStep((prev) => prev + 1);
     } else {
+      if (!confirmAccuracy || !waiveWithdrawal) {
+        setError(
+          lang === "FR"
+            ? "Veuillez confirmer les deux déclarations ci-dessous avant de finaliser."
+            : "Confirme as duas declarações abaixo antes de finalizar.",
+        );
+        return;
+      }
       submitContract();
     }
   };
@@ -248,6 +261,34 @@ function WizardForm() {
         </div>
       )}
 
+      {/* ── Bandeau permanent responsabilité (EXPERIENCE.md §Contract Liability) ── */}
+      {!generatedContractId && (
+        <div
+          role="note"
+          className="border-b"
+          style={{ background: "var(--status-amber-bg)", borderColor: "var(--status-amber-border)" }}
+        >
+          <div
+            className="max-w-[1400px] mx-auto px-6 py-2.5 flex items-start gap-2 text-xs leading-relaxed"
+            style={{ color: "var(--status-amber)" }}
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              {lang === "FR"
+                ? "Modèle juridique généré automatiquement à partir de vos réponses. Conformité légale validée à la date de génération. Pour les situations atypiques, "
+                : "Modelo jurídico gerado automaticamente a partir das suas respostas. Conformidade legal validada à data de geração. Para situações atípicas, "}
+              <Link
+                href="/contact"
+                className="underline underline-offset-2 font-semibold hover:opacity-80 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45 rounded-sm"
+              >
+                {lang === "FR" ? "demandez un avis d'avocat (49 €)" : "peça um parecer de advogado (49 €)"}
+              </Link>
+              .
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── Split layout ─────────────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-0">
 
@@ -340,6 +381,50 @@ function WizardForm() {
                   />
                 )}
               </div>
+
+              {/* Déclarations légales obligatoires avant finalisation
+                  (EXPERIENCE.md §Contract Liability — Dir. 2011/83/UE art. 16(m)) */}
+              {currentStep === totalSteps && (
+                <fieldset className="mt-8 space-y-3 rounded-lg border border-surface-mist bg-surface-card p-4">
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    {lang === "FR" ? "Déclarations obligatoires" : "Declarações obrigatórias"}
+                  </legend>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={confirmAccuracy}
+                      onChange={(e) => {
+                        setConfirmAccuracy(e.target.checked);
+                        setError(null);
+                      }}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-surface-mist-strong accent-[var(--brand-primary)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
+                    />
+                    <span className="text-sm text-text-secondary leading-relaxed">
+                      {lang === "FR"
+                        ? "J'ai vérifié que les informations saisies correspondent à ma situation. Je comprends que ce modèle ne remplace pas un conseil personnalisé pour les cas complexes."
+                        : "Verifiquei que as informações inseridas correspondem à minha situação. Compreendo que este modelo não substitui um aconselhamento personalizado para casos complexos."}
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={waiveWithdrawal}
+                      onChange={(e) => {
+                        setWaiveWithdrawal(e.target.checked);
+                        setError(null);
+                      }}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-surface-mist-strong accent-[var(--brand-primary)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
+                    />
+                    <span className="text-sm text-text-secondary leading-relaxed">
+                      {lang === "FR"
+                        ? "Je consens à l'exécution immédiate du service et renonce à mon droit de rétractation de 14 jours, conformément à l'art. 16(m) de la Directive 2011/83/UE."
+                        : "Consinto a execução imediata do serviço e renuncio ao meu direito de retratação de 14 dias, nos termos do art. 16(m) da Diretiva 2011/83/UE."}
+                    </span>
+                  </label>
+                </fieldset>
+              )}
 
               {/* Nav footer */}
               <div className="flex items-center justify-between mt-10 pt-8 border-t border-surface-mist">

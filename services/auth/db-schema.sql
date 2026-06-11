@@ -131,6 +131,23 @@ CREATE TABLE IF NOT EXISTS system_settings (
     value TEXT NOT NULL
 );
 
+-- KYC / eIDV — devoir de vigilance Lei 83/2017 (LBC/FT).
+-- retention_until = created_at + 7 ans (Art. 26) ; aucune purge avant cette date.
+CREATE TABLE IF NOT EXISTS kyc_verifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    dossier_id TEXT,
+    provider TEXT DEFAULT 'mock',
+    status TEXT DEFAULT 'pending',
+    eidv_result TEXT,
+    pep_result TEXT,
+    pep_lists_checked TEXT,
+    fullname TEXT,
+    retention_until TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT
+);
+
 INSERT INTO clause_versions (id, contract_type, clause_key, content, loi_reference, valid_from, valid_to) VALUES
 ('1', 'Bail', 'loyer', 'Le loyer mensuel est fixé à {loyer} EUR.', 'Art. 1040 du Code Civil Portugais', '2026-01-01', ''),
 ('2', 'Bail', 'duree', 'Le bail est conclu pour une durée de {duree} mois.', 'Art. 1042 du Code Civil Portugais', '2026-01-01', ''),

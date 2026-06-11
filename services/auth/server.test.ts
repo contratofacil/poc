@@ -64,9 +64,13 @@ describe('POST /api/nif/apply & POST /api/nif/upload', () => {
     expect(res.body.filepath).toBe(res.body.r2_key);
   });
 
-  test('should reject /api/nif/upload without auth', async () => {
+  // Funnel NIF public (POC) : l'upload accepte les anonymes comme /api/nif/apply.
+  // À re-durcir avant prod si le wizard NIF passe derrière l'auth Privy.
+  test('should accept anonymous /api/nif/upload (public NIF funnel)', async () => {
     const res = await request(app).post('/api/nif/upload').send({ filename: 'p.pdf' });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.r2_key).toContain('anonymous');
   });
 
   test('should successfully submit a NIF application', async () => {

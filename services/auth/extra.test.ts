@@ -209,9 +209,10 @@ describe('POST /api/nif/upload - Edge Cases', () => {
     expect(res.body.documentId).toBeDefined();
   });
 
-  test('should reject /api/nif/upload without Authorization', async () => {
-    const res = await request(app).post('/api/nif/upload').send({});
-    expect(res.status).toBe(401);
+  // Funnel NIF public (POC) : pas d'auth requise, mais le payload reste validé.
+  test('should validate payload on anonymous /api/nif/upload', async () => {
+    const res = await request(app).post('/api/nif/upload').send({ filename: 123 });
+    expect(res.status).toBe(400);
   });
 });
 

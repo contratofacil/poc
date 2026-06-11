@@ -12,8 +12,13 @@ import type { PrivyClientConfig } from "@privy-io/react-auth";
 export const PRIVY_APP_ID =
   process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "your-privy-app-id";
 
-export const PRIVY_CLIENT_ID =
-  process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID ?? "";
+// Les client IDs Privy commencent toujours par "client-". Une valeur vide ou
+// placeholder ("your-privy-client-id") ferait échouer l'init du SDK — et donc
+// bloquerait toutes les pages protégées sur leur état de chargement.
+const rawClientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID ?? "";
+export const PRIVY_CLIENT_ID = rawClientId.startsWith("client-")
+  ? rawClientId
+  : "";
 
 export const privyConfig: PrivyClientConfig = {
   /* ── 1. Login methods ─────────────────────────────────────────────────── */
