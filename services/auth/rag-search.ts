@@ -1,14 +1,81 @@
-import { CohereClient } from 'cohere-ai';
 import { all } from './db';
 import {
   embedQuery,
-  embedDocuments,
   searchQdrant,
   getCohereClient,
   QDRANT_COLLECTIONS,
-  SOURCE_TO_COLLECTION,
 } from './rag-embeddings';
 import { callPrompt } from './rag-llm-router';
+
+// ---------------------------------------------------------------------------
+// Reranking providers
+// RERANK_PROVIDER = cohere (défaut si COHERE_API_KEY présent) | jina | none
+//
+// jina  → JINA_API_KEY requis (gratuit sur jina.ai, 1M tokens/mois)
+//         modèle : jina-reranker-v2-base-multilingual
+// none  → tri par score vectoriel uniquement
+// ---------------------------------------------------------------------------
+
+type RerankProvider = 'cohere' | 'jina' | 'none';
+
+function getRerankProvider(): RerankProvider {
+  const p = (process.env.RERANK_PROVIDER || '').toLowerCase();
+  if (p === 'jina') return 'jina';
+  if (p === 'none') return 'none';
+  // Auto-détection : Cohere si clé présente, sinon none
+  if (!p) return process.env.COHERE_API_KEY ? 'cohere' : 'none';
+  return 'cohere';
+}
+
+interface RerankResult {
+  index: number;
+  relevanceScore: number;
+}
+
+async function rerankWithCohere(query: string, documents: string[], topN: number): Promise<RerankResult[]> {
+  const cohere = getCohereClient();
+  const res = await cohere.v2.rerank({
+    model: 'rerank-multilingual-v3.0',
+    query,
+    documents,
+    topN,
+  });
+  return res.results.map((r) => ({ index: r.index, relevanceScore: r.relevanceScore }));
+}
+
+async function rerankWithJina(query: string, documents: string[], topN: number): Promise<RerankResult[]> {
+  if (!process.env.JINA_API_KEY) throw new Error('JINA_API_KEY not configured');
+  const res = await fetch('https://api.jina.ai/v1/rerank', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.JINA_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'jina-reranker-v2-base-multilingual',
+      query,
+      documents,
+      top_n: topN,
+    }),
+  });
+  if (!res.ok) throw new Error(`Jina rerank error: ${res.status}`);
+  const data = await res.json() as { results: Array<{ index: number; relevance_score: number }> };
+  return data.results.map((r) => ({ index: r.index, relevanceScore: r.relevance_score }));
+}
+
+async function rerank(query: string, documents: string[], topN: number): Promise<RerankResult[] | null> {
+  const provider = getRerankProvider();
+  try {
+    if (provider === 'cohere') return await rerankWithCohere(query, documents, topN);
+    if (provider === 'jina') return await rerankWithJina(query, documents, topN);
+    return null; // 'none' → pas de reranking
+  } catch (err) {
+    console.warn('[RAG] Reranking failed, falling back to vector scores:', (err as Error).message);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 export interface SearchResult {
   qdrant_id: string;
@@ -28,18 +95,15 @@ export async function standardSearch(
 ): Promise<SearchResult[]> {
   const vector = await embedQuery(query);
 
-  // Parallel search across all collections
   const rawResults = (
     await Promise.all(QDRANT_COLLECTIONS.map((col) => searchQdrant(col, vector, topK)))
   ).flat();
 
   if (rawResults.length === 0) return [];
 
-  // Sort by score and take top topK
   rawResults.sort((a, b) => b.score - a.score);
   const top = rawResults.slice(0, topK);
 
-  // Fetch chunk text from DB by qdrant_id
   const qdrantIds = top.map((r) => r.id);
   const placeholders = qdrantIds.map(() => '?').join(',');
   const rows = await all<{
@@ -58,7 +122,6 @@ export async function standardSearch(
   );
 
   const rowByQId = new Map(rows.map((r) => [r.qdrant_id, r]));
-
   const candidates: SearchResult[] = top
     .map((r) => {
       const row = rowByQId.get(r.id);
@@ -78,29 +141,16 @@ export async function standardSearch(
 
   if (candidates.length === 0) return [];
 
-  // Cohere reranking
-  try {
-    const cohere = getCohereClient();
-    const reranked = await cohere.v2.rerank({
-      model: 'rerank-multilingual-v3.0',
-      query,
-      documents: candidates.map((c) => c.chunk_text),
-      topN: rerankTo,
-    });
-    return reranked.results.map((r) => ({
-      ...candidates[r.index],
-      score: r.relevanceScore,
-    }));
-  } catch {
-    // Fallback: return top candidates without reranking
-    return candidates.slice(0, rerankTo);
+  const reranked = await rerank(query, candidates.map((c) => c.chunk_text), rerankTo);
+  if (reranked) {
+    return reranked.map((r) => ({ ...candidates[r.index], score: r.relevanceScore }));
   }
+  return candidates.slice(0, rerankTo);
 }
 
 export async function deepDiveSearch(
   query: string,
 ): Promise<{ results: SearchResult[]; subQueries: string[] }> {
-  // Expand query into sub-queries
   let subQueries: string[] = [];
   try {
     const raw = await callPrompt('research_query_expand', { query });
@@ -111,12 +161,10 @@ export async function deepDiveSearch(
   }
   if (!subQueries.length) subQueries = [query];
 
-  // Parallel standard search for each sub-query
   const allResults = (
     await Promise.all(subQueries.map((sq) => standardSearch(sq, 15, 8)))
   ).flat();
 
-  // Deduplicate by url+chunk
   const seen = new Set<string>();
   const deduped: SearchResult[] = [];
   for (const r of allResults) {
@@ -127,25 +175,13 @@ export async function deepDiveSearch(
     }
   }
 
-  // Final rerank on merged set
   if (deduped.length === 0) return { results: [], subQueries };
 
-  try {
-    const cohere = getCohereClient();
-    const reranked = await cohere.v2.rerank({
-      model: 'rerank-multilingual-v3.0',
-      query,
-      documents: deduped.map((d) => d.chunk_text),
-      topN: Math.min(15, deduped.length),
-    });
-    const results = reranked.results.map((r) => ({
-      ...deduped[r.index],
-      score: r.relevanceScore,
-    }));
-    return { results, subQueries };
-  } catch {
-    return { results: deduped.slice(0, 15), subQueries };
+  const reranked = await rerank(query, deduped.map((d) => d.chunk_text), Math.min(15, deduped.length));
+  if (reranked) {
+    return { results: reranked.map((r) => ({ ...deduped[r.index], score: r.relevanceScore })), subQueries };
   }
+  return { results: deduped.slice(0, 15), subQueries };
 }
 
 export function buildContext(results: SearchResult[]): string {

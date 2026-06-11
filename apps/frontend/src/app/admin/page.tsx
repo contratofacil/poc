@@ -687,8 +687,8 @@ function AdminPageContent() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <KPICard
                       title="Revenus encaissés"
-                      value={`€ ${stats.payments.totalRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}`}
-                      subtitle={`${stats.payments.paidCount} paiements · ${stats.payments.pendingCount} en attente`}
+                      value={`€ ${(stats.payments?.totalRevenue ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}`}
+                      subtitle={`${stats.payments?.paidCount ?? 0} paiements · ${stats.payments?.pendingCount ?? 0} en attente`}
                       icon={<CreditCard className="w-4 h-4" />}
                       color="default"
                     />
@@ -1267,7 +1267,7 @@ function AdminPageContent() {
                     style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
                   >
                     <div className="text-2xl font-bold mb-1" style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}>
-                      {indexingStatus.docCounts.reduce((s, d) => s + d.count, 0).toLocaleString("fr-FR")}
+                      {indexingStatus.docCounts.reduce((s, d) => s + (d.count ?? 0), 0).toLocaleString("fr-FR")}
                     </div>
                     <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-muted)" }}>Chunks totaux</div>
                   </div>
@@ -1349,7 +1349,7 @@ function AdminPageContent() {
                             <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
                           </div>
                           <span className="text-xs font-semibold w-20 text-right shrink-0" style={{ color: "var(--brand-primary)" }}>
-                            {d.count.toLocaleString("fr-FR")}
+                            {(d.count ?? 0).toLocaleString("fr-FR")}
                           </span>
                           {isRunning && (
                             <span
@@ -1405,7 +1405,7 @@ function AdminPageContent() {
                           {run.source ?? "ALL"}
                         </span>
                         <span style={{ color: "var(--text-secondary)" }}>
-                          {run.docs_indexed.toLocaleString("fr-FR")} docs
+                          {(run.docs_indexed ?? 0).toLocaleString("fr-FR")} docs
                         </span>
                         {run.error_message && (
                           <span className="flex-1 truncate" style={{ color: "var(--status-red)" }}>
