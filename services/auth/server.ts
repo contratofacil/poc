@@ -629,18 +629,70 @@ app.post('/api/nif/apply', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
+// GET /api/nif/template/procuration — generate procuration .docx on the fly
+app.get('/api/nif/template/procuration', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } = await import('docx');
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({ heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: 'PROCURATION', bold: true, size: 32 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'Je soussigné(e), [NOM COMPLET], né(e) le [DATE DE NAISSANCE], de nationalité [NATIONALITÉ], demeurant au [ADRESSE COMPLÈTE], titulaire du passeport / document d\'identité n° [NUMÉRO DE DOCUMENT],', size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'donne par la présente PROCURATION à :', bold: true, size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'Cabinet Oliveira & Carneiro, Advogados, inscrit au barreau de Lisbonne, sis au [ADRESSE DU CABINET],', size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'AFIN DE :', bold: true, size: 24 })] }),
+          new Paragraph({ children: [new TextRun({ text: '- Représenter le mandant auprès de l\'Autoridade Tributária e Aduaneira (Finanças) du Portugal.', size: 24 })] }),
+          new Paragraph({ children: [new TextRun({ text: '- Déposer et suivre toutes démarches relatives à l\'obtention d\'un Numéro d\'Identification Fiscale (NIF).', size: 24 })] }),
+          new Paragraph({ children: [new TextRun({ text: '- Signer tous documents nécessaires à cet effet.', size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'La présente procuration est donnée pour une durée de douze (12) mois à compter de la date de signature.', size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'Fait à [VILLE], le [DATE]', size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'Signature du mandant : ___________________________', size: 24 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: '(Précédée de la mention manuscrite « Lu et approuvé »)', italics: true, size: 20 })] }),
+          new Paragraph({ text: '' }),
+          new Paragraph({ children: [new TextRun({ text: 'Légalisation notariale ou apostille requise.', italics: true, size: 20 })] }),
+        ],
+      }],
+    });
+    const buffer = await Packer.toBuffer(doc);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename="procuration_nif.docx"');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating procuration template:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate template' });
+  }
+});
+
 // Payment endpoint (POST /api/nif/payment)
 app.post('/api/nif/payment', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { user_id, method, amount, currency, product } = req.body;
-    
-    if (!user_id) {
-      res.status(400).json({ success: false, message: 'user_id is required' });
+    const { user_id, dossier_id, method, amount, currency, product } = req.body;
+
+    if (!user_id && !dossier_id) {
+      res.status(400).json({ success: false, message: 'user_id or dossier_id is required' });
       return;
     }
     if (!method || !['stripe', 'mbway'].includes(method)) {
       res.status(400).json({ success: false, message: 'Invalid or missing payment method' });
       return;
+    }
+
+    // Resolve user_id from dossier when anonymous
+    let resolvedUserId = user_id;
+    if (!resolvedUserId && dossier_id) {
+      const dossier = await get<{ user_id: string | null }>('SELECT user_id FROM dossiers_nif WHERE id = ?', [dossier_id]);
+      resolvedUserId = dossier?.user_id ?? dossier_id; // fallback: use dossier_id as surrogate key
     }
 
     const paymentId = crypto.randomUUID();
@@ -653,7 +705,7 @@ app.post('/api/nif/payment', async (req: Request, res: Response): Promise<void> 
       await run(
         `INSERT INTO payments (id, user_id, stripe_id, amount, currency, status, product)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [paymentId, user_id, stripeId, payAmount, payCurrency, 'pending', payProduct]
+        [paymentId, resolvedUserId, stripeId, payAmount, payCurrency, 'pending', payProduct]
       );
       res.status(200).json({
         success: true,
@@ -667,7 +719,7 @@ app.post('/api/nif/payment', async (req: Request, res: Response): Promise<void> 
       await run(
         `INSERT INTO payments (id, user_id, stripe_id, amount, currency, status, product)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [paymentId, user_id, null, payAmount, payCurrency, 'pending', payProduct]
+        [paymentId, resolvedUserId, null, payAmount, payCurrency, 'pending', payProduct]
       );
       res.status(200).json({
         success: true,

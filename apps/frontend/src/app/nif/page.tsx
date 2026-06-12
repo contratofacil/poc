@@ -81,6 +81,7 @@ type T = {
   successTitle: string; successDesc: string; backHomeBtn: string;
   back: string; next: string; continue: string;
   validationError: string; uploadError: string; submitError: string; uploading: string; uploadBothHint: string;
+  passportFileLabel: string; addressFileLabel: string;
 };
 
 const translations: Record<Lang, T> = {
@@ -156,6 +157,8 @@ const translations: Record<Lang, T> = {
     submitError: "Une erreur est survenue lors de l'enregistrement de votre demande.",
     uploading: "Téléversement...",
     uploadBothHint: "Téléversez les deux documents pour continuer.",
+    passportFileLabel: "Passeport",
+    addressFileLabel: "Justificatif",
   },
   PT: {
     breadcrumb: "/ Novo processo NIF",
@@ -229,6 +232,8 @@ const translations: Record<Lang, T> = {
     submitError: "Ocorreu um erro ao registar o seu pedido.",
     uploading: "A carregar...",
     uploadBothHint: "Carregue os dois documentos para continuar.",
+    passportFileLabel: "Passaporte",
+    addressFileLabel: "Comprovativo",
   },
 };
 
@@ -260,6 +265,7 @@ export default function NifWizardPage() {
   const [isUploadingPassport, setIsUploadingPassport] = useState(false);
   const [isUploadingAddress, setIsUploadingAddress] = useState(false);
 
+  const [dossierId, setDossierId] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState({ cardNumber: "", expiry: "", cvc: "" });
 
   const passportInputRef = useRef<HTMLInputElement>(null);
@@ -302,10 +308,20 @@ export default function NifWizardPage() {
       const response = await fetch(getApiUrl("/api/nif/upload"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name }),
+        body: JSON.stringify({ filename: file.name, mime_type: file.type || "application/octet-stream" }),
       });
       if (!response.ok) throw new Error("Upload failed");
       const data = await response.json();
+
+      if (data.uploadUrl) {
+        const putRes = await fetch(data.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!putRes.ok) throw new Error("R2 PUT failed");
+      }
+
       setFormData((prev) => ({ ...prev, [fieldName]: data.filepath }));
     } catch {
       setError(t.uploadError);
@@ -391,6 +407,8 @@ export default function NifWizardPage() {
         body: JSON.stringify(formData),
       });
       if (!response.ok) throw new Error("Application submission failed");
+      const result = await response.json();
+      setDossierId(result.dossierId ?? null);
       setStep(6);
     } catch {
       setError(t.submitError);
@@ -399,7 +417,7 @@ export default function NifWizardPage() {
     }
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentData.cardNumber || !paymentData.expiry || !paymentData.cvc) {
       setError(t.validationError);
@@ -407,10 +425,19 @@ export default function NifWizardPage() {
     }
     setIsLoading(true);
     setError(null);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const res = await fetch(getApiUrl("/api/nif/payment"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossier_id: dossierId, method: "stripe", amount: 99, currency: "EUR" }),
+      });
+      if (!res.ok) throw new Error("Payment failed");
       setStep(7);
-    }, 1500);
+    } catch {
+      setError(t.submitError);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // ── Layout ──────────────────────────────────────────────────────────────────
@@ -720,10 +747,10 @@ export default function NifWizardPage() {
                 <div className="flex-1">
                   <p className="font-semibold text-text-primary mb-1">{t.step3CardTitle}</p>
                   <p className="text-sm text-text-secondary mb-4">{t.step3CardBody}</p>
-                  <a href="#"
+                  <a href={getApiUrl("/api/nif/template/procuration")}
+                    download="procuration_nif.docx"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-surface-mist bg-transparent text-text-secondary hover:bg-surface-page transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
                     aria-label={t.downloadTemplate}
-                    onClick={(e) => e.preventDefault()}
                   >
                     <FileText className="w-4 h-4" />
                     {t.downloadTemplate}
@@ -754,11 +781,11 @@ export default function NifWizardPage() {
               <div className="pt-4 border-t border-surface-mist space-y-2">
                 <div className="flex items-center gap-2 text-xs text-text-secondary">
                   <FileText className="w-4 h-4 text-brand-secondary" />
-                  <span>Passeport : <strong className="text-status-green">{passportFileName}</strong></span>
+                  <span>{t.passportFileLabel} : <strong className="text-status-green">{passportFileName}</strong></span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-text-secondary">
                   <FileText className="w-4 h-4 text-brand-secondary" />
-                  <span>Justificatif : <strong className="text-status-green">{addressFileName}</strong></span>
+                  <span>{t.addressFileLabel} : <strong className="text-status-green">{addressFileName}</strong></span>
                 </div>
               </div>
             </div>
