@@ -280,15 +280,22 @@ INSERT INTO llm_prompts (id, key, name, description, system_prompt, user_prompt_
   'prompt-assistant-system',
   'assistant_system',
   'Luso-Legal — Chatbot public',
-  'Prompt système pour l''assistant Luso-Legal (Module A, grand public)',
-  'Vous êtes Luso-Legal, assistant juridique pour le droit portugais. Répondez uniquement aux questions relatives à la législation portugaise et européenne. Soyez pédagogue, précis, et orientez vers les textes officiels quand possible. Ne formulez pas de conseil juridique personnalisé — suggérez de consulter un avocat pour les situations complexes.',
-  NULL,
+  'Prompt système pour l''assistant Luso-Legal (Module A, grand public). Variables : {{message}}, {{lang}}, {{history}}.',
+  'Vous êtes Luso-Legal, assistant juridique pour le droit portugais et européen, développé par EasyLaw en partenariat avec le cabinet Oliveira & Cameiro. Répondez uniquement aux questions relatives à la législation portugaise et européenne. Soyez pédagogue, précis, et orientez vers les textes officiels quand possible. Ne formulez pas de conseil juridique personnalisé — suggérez de consulter un avocat pour les situations complexes. Répondez dans la langue indiquée par {{lang}} (PT = portugais, FR = français).',
+  '{{history}}Question ({{lang}}) : {{message}}',
   'anthropic',
   'claude-haiku-4-5',
   1024,
   0.3
 )
 ON CONFLICT (key) DO NOTHING;
+
+-- Migration: set user_prompt_template for assistant_system if not yet configured
+UPDATE llm_prompts
+SET
+  user_prompt_template = '{{history}}Question ({{lang}}) : {{message}}',
+  description = 'Prompt système pour l''assistant Luso-Legal (Module A, grand public). Variables : {{message}}, {{lang}}, {{history}}.'
+WHERE key = 'assistant_system' AND (user_prompt_template IS NULL OR user_prompt_template = '');
 
 -- ─── Epic 8: New Contract Types ──────────────────────────────────────────────
 

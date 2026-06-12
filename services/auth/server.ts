@@ -27,6 +27,7 @@ import { streamResearch } from './rag-llm';
 import { runIncrementalIndex } from './rag-crawler';
 import { generateResearchPdf, storeResearchPdf } from './rag-pdf';
 import {
+  callPrompt,
   getPromptConfig,
   invalidatePromptCache,
   PROVIDER_MODELS,
@@ -1494,15 +1495,28 @@ app.post('/api/assistant/chat', authMiddleware, async (req: Request, res: Respon
       return;
     }
 
-    const systemPromptRow = await get<{ value: string }>('SELECT value FROM system_settings WHERE key = ?', ['assistant_system_prompt']);
-    const systemPrompt = systemPromptRow ? systemPromptRow.value : 'Vous êtes Luso-Legal, assistant juridique...';
+    // Fetch recent conversation history for context (last 6 messages)
+    const recentMessages = await all<{ role: string; content: string }>(
+      'SELECT role, content FROM assistant_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 6',
+      [userId]
+    );
+    const history = recentMessages.length > 0
+      ? recentMessages.reverse().map(m => `${m.role === 'user' ? 'Utilisateur' : 'Luso-Legal'}: ${m.content}`).join('\n') + '\n\n'
+      : '';
 
-    let { response, source } = getRAGResponse(message, lang);
-    const lowercaseQuery = message.toLowerCase();
-    if (lowercaseQuery.includes('system prompt') || lowercaseQuery.includes('instructions') || lowercaseQuery.includes('consignes') || lowercaseQuery.includes('qui es-tu') || lowercaseQuery.includes('quem és')) {
-      response = `[Luso-Legal] Mes consignes système actives : "${systemPrompt}"`;
-      source = "Configuration Système";
+    // Call configurable LLM prompt (editable in admin panel)
+    let response: string;
+    let source = 'Luso-Legal AI';
+    try {
+      response = await callPrompt('assistant_system', { message, lang, history });
+    } catch (llmError) {
+      console.error('Assistant LLM call failed:', llmError);
+      response = lang === 'FR'
+        ? "Je rencontre une difficulté technique. Veuillez réessayer dans quelques instants ou escalader vers un avocat si votre question est urgente."
+        : "Estou com uma dificuldade técnica. Por favor, tente novamente em alguns instantes ou escale para um advogado se a sua questão for urgente.";
+      source = 'Fallback';
     }
+
     const userMsgId = crypto.randomUUID();
     const assistantMsgId = crypto.randomUUID();
     const now = new Date().toISOString();
