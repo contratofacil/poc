@@ -305,23 +305,14 @@ export default function NifWizardPage() {
       setAddressFileName(file.name);
     }
     try {
+      const formPayload = new FormData();
+      formPayload.append("file", file);
       const response = await fetch(getApiUrl("/api/nif/upload"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, mime_type: file.type || "application/octet-stream" }),
+        body: formPayload,
       });
       if (!response.ok) throw new Error("Upload failed");
       const data = await response.json();
-
-      if (data.uploadUrl) {
-        const putRes = await fetch(data.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!putRes.ok) throw new Error("R2 PUT failed");
-      }
-
       setFormData((prev) => ({ ...prev, [fieldName]: data.filepath }));
     } catch {
       setError(t.uploadError);

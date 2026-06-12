@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
@@ -840,53 +841,46 @@ app.get('/api/nif/status', async (req: Request, res: Response): Promise<void> =>
 // Story 6-3 — Vault uploads via R2 + envelope encryption
 // ---------------------------------------------------------------------------
 
-const nifUploadSchema = z.object({
-  filename: z.string().min(1).max(255).optional(),
-  mime_type: z.string().min(1).max(255).optional().default('application/pdf'),
-  entity_id: z.string().nullable().optional(),
-});
+const _nifUploadMulter = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+}).single('file');
 
-// POST /api/nif/upload — create a vault_documents row and return a presigned PUT URL
+// POST /api/nif/upload — proxy upload: receive file, encrypt, store to R2 vault.
+// Direct browser→R2 presigned PUT was blocked by R2 CORS; proxying via backend
+// avoids CORS entirely and keeps AES-256 encryption server-side.
 // Auth optionnelle : le funnel NIF est public (cohérent avec /api/nif/apply).
-app.post('/api/nif/upload', optionalAuthMiddleware, async (req: Request, res: Response): Promise<void> => {
+app.post('/api/nif/upload', optionalAuthMiddleware, (req: Request, res: Response, next: NextFunction) => {
+  _nifUploadMulter(req, res, next);
+}, async (req: Request, res: Response): Promise<void> => {
   try {
-    const parsed = nifUploadSchema.safeParse(req.body || {});
-    if (!parsed.success) {
-      res.status(400).json({
-        success: false,
-        errors: parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }))
-      });
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) {
+      res.status(400).json({ success: false, message: 'No file provided' });
       return;
     }
-    const { filename, mime_type, entity_id } = parsed.data;
-    const userId: string | null = (req as any).user?.id ?? null;
+    const userId: string = (req as any).user?.id ?? 'anonymous';
+    const entityId: string | null = req.body?.entity_id ?? null;
 
-    const result = await prepareUpload({
-      // Visiteur anonyme (funnel public) : clé R2 sous le segment 'anonymous'
-      user_id: userId ?? 'anonymous',
+    const result = await putDocument({
+      buffer: file.buffer,
+      mime_type: file.mimetype || 'application/octet-stream',
       entity_type: 'nif_piece',
-      entity_id: entity_id ?? null,
-      filename: filename || 'document.pdf',
-      mime_type,
+      entity_id: entityId,
+      user_id: userId,
     });
 
-    await logAudit(userId, 'PREPARE_VAULT_UPLOAD', 'vault_document', result.documentId, req);
+    await logAudit(userId, 'UPLOAD_DOCUMENT_COMPLETE', 'vault_document', result.id, req);
 
-    // Backwards-compat: `filepath` mirrors `r2_key` so legacy callers don't break entirely.
     res.status(200).json({
       success: true,
       filepath: result.r2_key,
-      documentId: result.documentId,
-      uploadUrl: result.uploadUrl,
+      documentId: result.id,
       r2_key: result.r2_key,
-      expiresIn: result.expiresIn,
     });
   } catch (error: any) {
-    console.error('Error preparing vault upload:', error?.message || error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to prepare document upload'
-    });
+    console.error('Error uploading vault document:', error?.message || error);
+    res.status(500).json({ success: false, message: 'Failed to upload document' });
   }
 });
 
