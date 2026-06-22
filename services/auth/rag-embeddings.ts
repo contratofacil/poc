@@ -266,6 +266,19 @@ export async function upsertToQdrant(collection: QdrantCollection, points: Qdran
   await client.upsert(collection, { points, wait: true });
 }
 
+export async function deleteFromQdrantByFilter(collection: QdrantCollection, source: string, externalId: string): Promise<void> {
+  const client = getQdrantClient();
+  await client.delete(collection, {
+    filter: {
+      must: [
+        { key: 'source', match: { value: source } },
+        { key: 'external_id', match: { value: externalId } },
+      ],
+    },
+    wait: true,
+  });
+}
+
 export async function searchQdrant(
   collection: QdrantCollection,
   vector: number[],

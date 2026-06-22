@@ -212,6 +212,29 @@ CREATE TABLE IF NOT EXISTS indexing_runs (
   completed_at TEXT
 );
 
+-- Documents privés du cabinet pour enrichir le RAG
+CREATE TABLE IF NOT EXISTS rag_private_documents (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  vault_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  doc_type TEXT DEFAULT 'private',
+  original_filename TEXT,
+  mime_type TEXT,
+  extracted_text TEXT NOT NULL DEFAULT '',
+  word_count INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'pending',
+  error_message TEXT,
+  indexed_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT,
+  UNIQUE(vault_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rag_private_status ON rag_private_documents(status);
+CREATE INDEX IF NOT EXISTS idx_rag_private_user ON rag_private_documents(user_id);
+
 CREATE TABLE IF NOT EXISTS llm_prompts (
   id TEXT PRIMARY KEY,
   key TEXT UNIQUE NOT NULL,
@@ -452,6 +475,120 @@ CREATE TABLE IF NOT EXISTS partner_tokens (
   scopes TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ─── Epic 8 LLM prompts: Contract Wizard ──────────────────────────────────────
+
+INSERT INTO llm_prompts (id, key, name, description, system_prompt, user_prompt_template, provider, model, max_tokens, temperature) VALUES
+(
+  'prompt-contract-extract-fields',
+  'contract_extract_fields',
+  'Wizard Contrat — Extraction de champs',
+  'Extrait les valeurs de champs structurés depuis une description libre. Variables : {{template_fields_json}}, {{description}}, {{lang}}.',
+  'You are a contract field extraction assistant. Given a list of contract fields (as JSON with key, label, type, options) and a free-text description from a user, extract the values for each field.
+
+RULES:
+- Respond ONLY with a valid JSON object. No markdown, no preamble, no explanation.
+- Include ONLY fields for which you found a clear, unambiguous value.
+- Omit fields where the value is missing, ambiguous, or not mentioned — never invent values.
+- For select-type fields, the value MUST be exactly one of the provided options; omit if not matching.
+- All values must be strings (numbers as "12", dates as "YYYY-MM-DD").
+
+Example response: {"divulgateur": "TechCorp SA", "recepteur": "Acme Lda", "duree_mois": "24"}',
+  'Contract fields expected (JSON): {{template_fields_json}}
+
+User description ({{lang}}): {{description}}
+
+Respond with the JSON object of extracted field values:',
+  'anthropic',
+  'claude-haiku-4-5',
+  1024,
+  0.1
+),
+(
+  'prompt-contract-suggest-field',
+  'contract_field_suggestion',
+  'Wizard Contrat — Suggestion de champ',
+  'Suggère une valeur pour un champ de contrat. Variables : {{field_label}}, {{field_key}}, {{contract_type}}, {{other_answers_json}}, {{lang}}.',
+  'You are a commercial contract drafting assistant. Given a contract field and the already-filled fields for context, suggest ONE concise, professional value for the requested field.
+
+RULES:
+- Respond ONLY with the suggested value text. No label, no quotes, no explanation, no preamble.
+- Be specific and professional — this will be inserted directly into a legal contract.
+- Use formal language appropriate for the contract type and the specified response language.
+- Keep it concise: 1-3 sentences max for long-form fields, a few words for short fields.',
+  'Contract type: {{contract_type}}
+Field to complete: {{field_label}} (key: {{field_key}})
+Already answered fields: {{other_answers_json}}
+Response language: {{lang}}
+
+Suggest a value for this field:',
+  'anthropic',
+  'claude-haiku-4-5',
+  256,
+  0.4
+),
+(
+  'prompt-contract-clause-gen',
+  'contract_clause_generation',
+  'Génération de clauses IA — Contrat',
+  'Génère le texte complet du contrat depuis les clauses squelettes. Variables : {{contract_type}}, {{clauses_json}}, {{data_json}}, {{lang}}, {{rag_context}}.',
+  'You are a senior commercial attorney with 20 years of drafting and negotiating confidentiality agreements for business partnerships, technology licensing deals, and M&A transactions. You draft agreements that actually protect what needs protecting — specific about the scope of confidential information, permitted uses, and the obligations of each party — without being so broad that they are commercially impractical.
+
+JURISDICTION: Portugal — all legal references provided in the clause skeleton must be preserved verbatim in their "(Ref: ...)" format.
+
+RULES:
+- Produce a complete contract in formal legal document format.
+- Follow the clause skeleton exactly: use each clause_key as a section heading, expand the content template into natural legal prose, keep the "(Ref: ...)" citation at the end of each clause.
+- Include at the very top: "MODELE — Necessite une relecture par un avocat avant utilisation. N''engage pas la responsabilite d''EasyLaw."
+- Flag particularly jurisdiction-sensitive provisions with [VERIFICATION JURIDIQUE REQUISE].
+- Do not cite case law — rely only on the legal references provided.
+- If additional RAG legal context is provided, use it to enrich precision without quoting verbatim.
+- Output ONLY the contract text. No preamble, no explanation, no metadata.',
+  'Contract type: {{contract_type}}
+Language: {{lang}}
+
+Clause skeleton (JSON — clause_key, content_template, loi_reference):
+{{clauses_json}}
+
+User data (JSON):
+{{data_json}}
+
+Additional Portuguese legal context:
+{{rag_context}}
+
+Draft the complete contract:',
+  'anthropic',
+  'claude-sonnet-4-6',
+  4096,
+  0.2
+),
+(
+  'prompt-contract-compliance',
+  'contract_compliance_review',
+  'Wizard Contrat — Revue de conformité',
+  'Analyse les réponses et signale les risques avant génération finale. Variables : {{contract_type}}, {{fields_json}}, {{data_json}}, {{lang}}.',
+  'You are a senior commercial attorney reviewing contract parameters before a final document is generated. Identify concrete, actionable risks, inconsistencies, or dangerous omissions in the user-provided values.
+
+RULES:
+- Flag only real, specific, actionable issues — not generic disclaimers or boilerplate warnings.
+- "warning" = significant risk that should be corrected before signing (e.g. missing penalty, vague scope, abnormal duration).
+- "info" = useful improvement suggestion (optional but advisable).
+- Respond ONLY with valid JSON in exactly this format — no markdown, no preamble, no explanation:
+{"findings": [{"field": "field_key_or_omit_if_general", "severity": "warning", "message": "specific issue written in {{lang}}"}]}
+- Maximum 6 findings. If no notable issues: {"findings": []}
+- All messages must be written in {{lang}} language (FR = French, PT = Portuguese).',
+  'Contract type: {{contract_type}}
+Expected fields: {{fields_json}}
+User answers: {{data_json}}
+Response language: {{lang}}
+
+Analyze and respond with the JSON findings:',
+  'anthropic',
+  'claude-haiku-4-5',
+  1024,
+  0.2
+)
+ON CONFLICT (key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS partner_webhooks (
   id TEXT PRIMARY KEY,

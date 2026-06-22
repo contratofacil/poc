@@ -25,6 +25,10 @@ import {
   Database,
   RefreshCw,
   AlertTriangle,
+  Upload,
+  Download,
+  X,
+  BookOpen,
 } from "lucide-react";
 import { getApiUrl } from "@/lib/api";
 import { useEasyLawAuth } from "@/lib/privy";
@@ -156,6 +160,20 @@ interface IndexingStatus {
   docCounts: { source: string; count: number }[];
 }
 
+interface PrivateDoc {
+  id: string;
+  user_id: string;
+  title: string;
+  doc_type: string;
+  original_filename: string;
+  word_count: number;
+  mime_type: string;
+  status: "pending" | "indexing" | "indexed" | "failed" | "deleted";
+  error_message: string | null;
+  indexed_at: string | null;
+  created_at: string;
+}
+
 // ─── Shared style constants ───────────────────────────────────────────────────
 
 const CLS_INPUT =
@@ -263,6 +281,12 @@ function AdminPageContent() {
   const [isLoadingRag, setIsLoadingRag] = useState(false);
   const [isTriggeringIndex, setIsTriggeringIndex] = useState(false);
 
+  // Private docs tab
+  const [privateDocs, setPrivateDocs] = useState<PrivateDoc[]>([]);
+  const [isLoadingPrivateDocs, setIsLoadingPrivateDocs] = useState(false);
+  const [isUploadingPrivate, setIsUploadingPrivate] = useState(false);
+  const [indexingDocId, setIndexingDocId] = useState<string | null>(null);
+
   const fetchStats = useCallback(async (p: Period) => {
     const token = await getAccessToken();
     if (!token) return;
@@ -299,6 +323,24 @@ function AdminPageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchPrivateDocs = useCallback(async () => {
+    const token = await getAccessToken();
+    if (!token) return;
+    setIsLoadingPrivateDocs(true);
+    try {
+      const res = await fetch(getApiUrl("/api/admin/rag/private/documents"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) setPrivateDocs(data.documents ?? []);
+    } catch {
+      // non-fatal
+    } finally {
+      setIsLoadingPrivateDocs(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     fetchProfileAndData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,7 +352,10 @@ function AdminPageContent() {
   }, [period, profile]);
 
   useEffect(() => {
-    if (activeTab === "rag" && profile?.role && ADMIN_ROLES.includes(profile.role as UserRole)) fetchIndexingStatus();
+    if (activeTab === "rag" && profile?.role && ADMIN_ROLES.includes(profile.role as UserRole)) {
+      fetchIndexingStatus();
+      fetchPrivateDocs();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, profile]);
 
@@ -496,6 +541,76 @@ function AdminPageContent() {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur inconnue." });
     } finally {
       setIsTriggeringIndex(false);
+    }
+  };
+
+  const handlePrivateDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingPrivate(true);
+    setMessage(null);
+    const token = await getAccessToken();
+    try {
+      const form = new FormData();
+      Array.from(files).forEach((f) => form.append("files", f));
+      const res = await fetch(getApiUrl("/api/admin/rag/private/upload"), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const ok = (data.results as { success: boolean; name: string }[]).filter((r) => r.success).length;
+        const fail = data.results.length - ok;
+        setMessage({ type: ok > 0 ? "success" : "error", text: `${ok} fichier(s) importé(s)${fail > 0 ? `, ${fail} ignoré(s)` : ""}.` });
+        await fetchPrivateDocs();
+      } else throw new Error(data.message ?? "Erreur upload");
+    } catch (err: unknown) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur inconnue." });
+    } finally {
+      setIsUploadingPrivate(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleIndexPrivateDoc = async (docId: string) => {
+    setIndexingDocId(docId);
+    setMessage(null);
+    const token = await getAccessToken();
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/rag/private/${docId}/index`), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage({ type: "success", text: "Indexation lancée en arrière-plan." });
+        setPrivateDocs((prev) => prev.map((d) => d.id === docId ? { ...d, status: "indexing" } : d));
+        setTimeout(() => fetchPrivateDocs(), 5000);
+      } else throw new Error(data.message ?? "Erreur indexation");
+    } catch (err: unknown) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur inconnue." });
+    } finally {
+      setIndexingDocId(null);
+    }
+  };
+
+  const handleDeletePrivateDoc = async (docId: string) => {
+    if (!confirm("Supprimer ce document et le retirer du corpus RAG ?")) return;
+    setMessage(null);
+    const token = await getAccessToken();
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/rag/private/${docId}`), {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPrivateDocs((prev) => prev.filter((d) => d.id !== docId));
+        setMessage({ type: "success", text: "Document supprimé." });
+      } else throw new Error(data.message ?? "Erreur suppression");
+    } catch (err: unknown) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur inconnue." });
     }
   };
 
@@ -1469,6 +1584,114 @@ function AdminPageContent() {
                   </button>
                 ))}
               </div>
+
+              {/* ── Documents privés du cabinet ──────────────────────────────── */}
+              <section
+                className="p-5 rounded-xl border shadow-[var(--shadow-card)]"
+                style={{ background: "var(--surface-card)", borderColor: "var(--surface-mist)" }}
+              >
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                  <h3
+                    className="text-sm font-semibold flex items-center gap-2"
+                    style={{ fontFamily: "var(--font-serif)", color: "var(--brand-primary)" }}
+                  >
+                    <BookOpen className="w-4 h-4" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+                    Documents privés du cabinet
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={getApiUrl("/api/admin/rag/private/checklist.pdf")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]/30`}
+                      style={{ borderColor: "var(--surface-mist)", color: "var(--text-secondary)" }}
+                    >
+                      <Download className="w-3 h-3" aria-hidden="true" />
+                      Checklist PDF
+                    </a>
+                    <label
+                      className={`flex items-center gap-1.5 cursor-pointer text-xs px-3 py-1.5 rounded-lg font-semibold transition ${isUploadingPrivate ? "opacity-60 cursor-not-allowed" : ""}`}
+                      style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
+                    >
+                      <Upload className="w-3 h-3" aria-hidden="true" />
+                      {isUploadingPrivate ? "Import…" : "Importer des fichiers"}
+                      <input
+                        type="file"
+                        accept=".pdf,.docx,.txt"
+                        multiple
+                        className="sr-only"
+                        disabled={isUploadingPrivate}
+                        onChange={handlePrivateDocUpload}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <p className="text-[10px] mb-4" style={{ color: "var(--text-muted)" }}>
+                  PDF, DOCX et TXT acceptés (max 50 Mo / fichier). Les documents sont indexés dans Qdrant (collection legal_pt) et enrichissent les recherches juridiques.
+                </p>
+
+                {isLoadingPrivateDocs && privateDocs.length === 0 ? (
+                  <div className="py-6 text-center text-sm animate-pulse" style={{ color: "var(--text-muted)" }}>
+                    Chargement…
+                  </div>
+                ) : privateDocs.length === 0 ? (
+                  <div className="py-8 text-center text-sm rounded-lg border border-dashed" style={{ color: "var(--text-muted)", borderColor: "var(--surface-mist)" }}>
+                    Aucun document importé. Utilisez le bouton ci-dessus ou téléchargez la checklist PDF pour préparer les documents à demander au cabinet.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {privateDocs.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center gap-3 text-xs py-2.5 px-3 rounded-lg border"
+                        style={{ background: "var(--surface-raised)", borderColor: "var(--surface-mist)" }}
+                      >
+                        <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--brand-secondary)" }} aria-hidden="true" />
+                        <span className="flex-1 truncate font-medium" style={{ color: "var(--brand-primary)" }} title={doc.original_filename}>
+                          {doc.title}
+                        </span>
+                        <span className="shrink-0 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                          {(doc.word_count ?? 0).toLocaleString("fr-FR")} mots
+                        </span>
+                        <span
+                          className="text-[9px] px-2 py-0.5 rounded-full font-semibold shrink-0"
+                          style={
+                            doc.status === "indexed"
+                              ? { background: "var(--status-green-bg)", color: "var(--status-green)" }
+                              : doc.status === "indexing"
+                              ? { background: "var(--status-amber-bg)", color: "var(--status-amber)" }
+                              : doc.status === "failed"
+                              ? { background: "var(--status-red-bg)", color: "var(--status-red)" }
+                              : { background: "var(--surface-mist)", color: "var(--text-muted)" }
+                          }
+                        >
+                          {doc.status === "indexed" ? "indexé" : doc.status === "indexing" ? "en cours…" : doc.status === "failed" ? "échec" : "en attente"}
+                        </span>
+                        {doc.status !== "indexing" && (
+                          <button
+                            onClick={() => handleIndexPrivateDoc(doc.id)}
+                            disabled={indexingDocId === doc.id}
+                            title="Indexer dans Qdrant"
+                            className="shrink-0 text-[10px] px-2 py-0.5 rounded border transition hover:opacity-80 disabled:opacity-50"
+                            style={{ borderColor: "var(--brand-primary)", color: "var(--brand-primary)" }}
+                          >
+                            {indexingDocId === doc.id ? "…" : doc.status === "indexed" ? "Ré-indexer" : "Indexer"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeletePrivateDoc(doc.id)}
+                          title="Supprimer"
+                          className="shrink-0 p-1 rounded hover:opacity-80 transition"
+                          style={{ color: "var(--status-red)" }}
+                        >
+                          <X className="w-3 h-3" aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
 

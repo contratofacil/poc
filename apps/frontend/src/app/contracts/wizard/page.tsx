@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Check, AlertCircle, FileText, Loader2, Download } from "lucide-react";
 import Link from "next/link";
@@ -8,6 +8,10 @@ import { Suspense } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useEasyLawAuth } from "@/lib/privy";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { FieldInput, type TemplateField } from "./components/FieldInput";
+import { FreeTextGenerator } from "./components/FreeTextGenerator";
+import { FieldSuggestionButton } from "./components/FieldSuggestionButton";
+import { ComplianceReviewModal, type ComplianceFinding } from "./components/ComplianceReviewModal";
 
 // ─── Design constants ─────────────────────────────────────────────────────────
 
@@ -27,41 +31,16 @@ const CLS_BTN_OUTLINE = [
   "disabled:opacity-50 disabled:cursor-not-allowed",
 ].join(" ");
 
-const CLS_INPUT = [
-  "w-full px-3.5 py-2.5 rounded-lg text-sm transition",
-  "bg-surface-card border border-surface-mist-strong",
-  "text-text-primary placeholder:text-text-muted",
-  "focus:outline-none focus:border-brand-primary focus:ring-[3px] focus:ring-brand-primary/20",
-].join(" ");
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-interface Question {
-  key: string;
-  label: string;
-  placeholder: string;
+interface ContractTemplate {
+  id: string;
+  name: string;
   type: string;
+  description: string;
+  badge?: string;
+  fields: TemplateField[];
 }
-
-const bailQuestions: Question[] = [
-  { key: "bailleur", label: "Nom complet du propriétaire (Bailleur)", placeholder: "Ex: M. Jean Dupont", type: "text" },
-  { key: "preneur", label: "Nom complet du locataire (Preneur)", placeholder: "Ex: Mme Marie Curie", type: "text" },
-  { key: "adresse", label: "Adresse exacte du logement", placeholder: "Ex: Rua da Prata 120, Lisbonne", type: "text" },
-  { key: "loyer", label: "Montant du loyer mensuel (EUR)", placeholder: "Ex: 950", type: "number" },
-  { key: "duree", label: "Durée du bail (mois)", placeholder: "Ex: 12", type: "number" },
-  { key: "debut", label: "Date d'effet du bail", placeholder: "2026-06-01", type: "date" },
-  { key: "paiement", label: "Mode de paiement du loyer", placeholder: "Ex: Virement bancaire", type: "text" },
-];
-
-const travailQuestions: Question[] = [
-  { key: "employeur", label: "Dénomination de l'employeur", placeholder: "Ex: EasyLaw Lda", type: "text" },
-  { key: "salarie", label: "Nom complet du salarié", placeholder: "Ex: M. Albert Einstein", type: "text" },
-  { key: "poste", label: "Intitulé du poste occupé", placeholder: "Ex: Développeur Fullstack", type: "text" },
-  { key: "salaire", label: "Salaire mensuel brut (EUR)", placeholder: "Ex: 2500", type: "number" },
-  { key: "heures", label: "Durée hebdomadaire de travail (heures)", placeholder: "Ex: 40", type: "number" },
-  { key: "debut", label: "Date de début de l'activité", placeholder: "2026-06-01", type: "date" },
-  { key: "essai", label: "Période d'essai (jours)", placeholder: "Ex: 30", type: "number" },
-];
 
 // ─── Inner component (needs useSearchParams) ──────────────────────────────────
 
@@ -69,7 +48,7 @@ function WizardForm() {
   const searchParams = useSearchParams();
 
   const templateId = searchParams.get("templateId") || "bail_habitation";
-  const contractType = searchParams.get("type") || "Bail";
+  const contractType = searchParams.get("type") || "";
 
   const [lang, setLang] = useState<"FR" | "PT">("FR");
   const [currentStep, setCurrentStep] = useState(1);
@@ -78,78 +57,104 @@ function WizardForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedContractId, setGeneratedContractId] = useState<string | null>(null);
   const [compiledContent, setCompiledContent] = useState<string>("");
-  // Mitigation responsabilité civile (EXPERIENCE.md §Contract Liability) :
-  // les deux déclarations sont légalement requises avant exécution du service
-  // (Dir. 2011/83/UE art. 16(m) pour la renonciation au droit de rétractation).
   const [confirmAccuracy, setConfirmAccuracy] = useState(false);
   const [waiveWithdrawal, setWaiveWithdrawal] = useState(false);
 
+  // Template loading
+  const [template, setTemplate] = useState<ContractTemplate | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(true);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+
+  // Compliance review (Feature D)
+  const [complianceFindings, setComplianceFindings] = useState<ComplianceFinding[] | null>(null);
+  const [showComplianceModal, setShowComplianceModal] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewAcknowledged, setReviewAcknowledged] = useState(false);
+
   const { getAccessToken } = useEasyLawAuth();
 
-  const questions = contractType === "Bail" ? bailQuestions : travailQuestions;
+  // ── Fetch template on mount ──────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchTemplate() {
+      setTemplateLoading(true);
+      setTemplateError(null);
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(getApiUrl("/api/contracts/templates"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Erreur de chargement du modèle");
+        const data = await res.json();
+        const found: ContractTemplate | undefined = data.templates?.find(
+          (t: ContractTemplate) => t.id === templateId,
+        );
+        if (!found) throw new Error(`Modèle "${templateId}" introuvable`);
+        setTemplate(found);
+      } catch (err: unknown) {
+        setTemplateError(err instanceof Error ? err.message : "Erreur de chargement");
+      } finally {
+        setTemplateLoading(false);
+      }
+    }
+    fetchTemplate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId]);
+
+  const questions = template?.fields ?? [];
   const totalSteps = questions.length;
   const currentQuestion = questions[currentStep - 1];
 
-  // Update dynamic preview
+  // Reset compliance acknowledged when form changes
   useEffect(() => {
-    let preview = `CONTRAT DE ${contractType.toUpperCase()}\n\n`;
-    if (contractType === "Bail") {
-      preview += `Entre les soussignés :\n`;
-      preview += `Le Bailleur : ${formData.bailleur || "[Nom du Propriétaire]"}\n`;
-      preview += `Le Preneur : ${formData.preneur || "[Nom du Locataire]"}\n\n`;
-      preview += `Il a été convenu ce qui suit :\n\n`;
-      preview += `1. Le logement est situé à l'adresse suivante : ${formData.adresse || "[Adresse du bien]"}.\n\n`;
-      preview += `2. Le loyer mensuel est fixé à ${formData.loyer || "[loyer]"} EUR. (Ref: Art. 1040 du Code Civil Portugais)\n\n`;
-      preview += `3. Le bail est conclu pour une durée de ${formData.duree || "[duree]"} mois. (Ref: Art. 1042 du Code Civil Portugais)\n\n`;
-      preview += `4. Date d'effet : ${formData.debut || "[Date de début]"}.\n\n`;
-      preview += `5. Règlement : Le loyer sera payé par ${formData.paiement || "[Mode de paiement]"}.\n`;
-    } else {
-      preview += `Entre les soussignés :\n`;
-      preview += `L'Employeur : ${formData.employeur || "[Nom de l'Employeur]"}\n`;
-      preview += `Le Salarié : ${formData.salarie || "[Nom du Salarié]"}\n\n`;
-      preview += `Il a été convenu ce qui suit :\n\n`;
-      preview += `1. Le salarié exercera les fonctions de : ${formData.poste || "[Poste]"}.\n\n`;
-      preview += `2. Le salarié perçoit un salaire brut mensuel de ${formData.salaire || "[salaire]"} EUR. (Ref: Art. 273 du Code du Travail)\n\n`;
-      preview += `3. Temps de travail : Le contrat de travail est conclu pour une durée hebdomadaire de ${formData.heures || "[heures]"} heures.\n\n`;
-      preview += `4. Date de début : Le contrat prend effet le ${formData.debut || "[Date de début]"}.\n\n`;
-      preview += `5. Période d'essai : La période d'essai est fixée à ${formData.essai || "[Période d'essai]"} jours.\n`;
+    if (!generatedContractId) setReviewAcknowledged(false);
+  }, [formData, generatedContractId]);
+
+  // Reset suggestion state on step change
+  useEffect(() => {
+    setError(null);
+  }, [currentStep]);
+
+  // ── Generic live preview ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!template) return;
+    let preview = `${template.name.toUpperCase()}\n\n`;
+    for (const f of template.fields) {
+      const val = formData[f.key];
+      if (val) preview += `${f.label} : ${val}\n`;
+    }
+    if (!preview.includes("\n\n") || preview === `${template.name.toUpperCase()}\n\n`) {
+      preview += lang === "FR" ? "(Remplissez les champs pour voir l'aperçu)" : "(Preencha os campos para ver a pré-visualização)";
     }
     setCompiledContent(preview);
-  }, [formData, contractType]);
+  }, [formData, template, lang]);
 
-  const handleInputChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, [currentQuestion.key]: value }));
-    setError(null);
-  };
+  // ── Input change ─────────────────────────────────────────────────────────
+  const handleInputChange = useCallback(
+    (value: string) => {
+      if (!currentQuestion) return;
+      setFormData((prev) => ({ ...prev, [currentQuestion.key]: value }));
+      setError(null);
+    },
+    [currentQuestion],
+  );
 
-  const handleNext = () => {
-    if (!formData[currentQuestion.key]) {
-      setError(lang === "FR" ? "Veuillez répondre à cette question." : "Por favor, responda a esta pergunta.");
-      return;
-    }
-    setError(null);
-    if (currentStep < totalSteps) {
-      setCurrentStep((prev) => prev + 1);
-    } else {
-      if (!confirmAccuracy || !waiveWithdrawal) {
-        setError(
-          lang === "FR"
-            ? "Veuillez confirmer les deux déclarations ci-dessous avant de finaliser."
-            : "Confirme as duas declarações abaixo antes de finalizar.",
-        );
-        return;
-      }
-      submitContract();
-    }
-  };
-
-  const handlePrev = () => {
-    setError(null);
-    if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
+  // ── Run compliance review ────────────────────────────────────────────────
+  const runComplianceReview = async (): Promise<ComplianceFinding[]> => {
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/contracts/compliance-review"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ templateId, data: formData, lang }),
+      });
+      const json = await res.json();
+      return Array.isArray(json.findings) ? json.findings : [];
+    } catch {
+      return []; // non-blocking: failure = no findings
     }
   };
 
+  // ── Submit contract ──────────────────────────────────────────────────────
   const submitContract = async () => {
     setIsSubmitting(true);
     setError(null);
@@ -162,9 +167,9 @@ function WizardForm() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          type: contractType,
+          type: template?.type || contractType,
           template_id: templateId,
-          data: formData,
+          data: { ...formData, _lang: lang },
         }),
       });
 
@@ -199,10 +204,103 @@ function WizardForm() {
     }
   };
 
+  // ── Navigation ───────────────────────────────────────────────────────────
+  const handleNext = async () => {
+    if (!currentQuestion) return;
+    const val = formData[currentQuestion.key];
+    if (!val && !currentQuestion.optional) {
+      setError(lang === "FR" ? "Veuillez répondre à cette question." : "Por favor, responda a esta pergunta.");
+      return;
+    }
+    setError(null);
+
+    if (currentStep < totalSteps) {
+      setCurrentStep((prev) => prev + 1);
+      return;
+    }
+
+    // Last step: check legal declarations
+    if (!confirmAccuracy || !waiveWithdrawal) {
+      setError(
+        lang === "FR"
+          ? "Veuillez confirmer les deux déclarations ci-dessous avant de finaliser."
+          : "Confirme as duas declarações abaixo antes de finalizar.",
+      );
+      return;
+    }
+
+    // Run compliance review before submitting (Feature D)
+    if (!reviewAcknowledged) {
+      setIsReviewing(true);
+      const findings = await runComplianceReview();
+      setIsReviewing(false);
+
+      if (findings.length > 0) {
+        setComplianceFindings(findings);
+        setShowComplianceModal(true);
+        return;
+      }
+      // No findings → skip modal, submit directly
+    }
+
+    submitContract();
+  };
+
+  const handlePrev = () => {
+    setError(null);
+    if (currentStep > 1) setCurrentStep((prev) => prev - 1);
+  };
+
+  const handleComplianceAcknowledge = () => {
+    setShowComplianceModal(false);
+    setReviewAcknowledged(true);
+    submitContract();
+  };
+
+  const handleComplianceGoBack = (fieldKey?: string) => {
+    setShowComplianceModal(false);
+    if (fieldKey && template) {
+      const idx = template.fields.findIndex((f) => f.key === fieldKey);
+      if (idx >= 0) setCurrentStep(idx + 1);
+    }
+  };
+
   const minsRemaining = Math.max(1, totalSteps - currentStep + 1);
+
+  // ── Loading / error states ────────────────────────────────────────────────
+  if (templateLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-surface-page">
+        <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--brand-secondary)" }} />
+        <p className="text-text-muted text-sm">
+          {lang === "FR" ? "Chargement du modèle de contrat…" : "A carregar o modelo de contrato…"}
+        </p>
+      </div>
+    );
+  }
+
+  if (templateError || !template) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-surface-page px-6">
+        <AlertCircle className="w-10 h-10 mb-4" style={{ color: "var(--status-red)" }} />
+        <p className="text-text-primary font-semibold mb-2">{templateError || "Modèle introuvable"}</p>
+        <Link href="/contracts" className={CLS_BTN_OUTLINE}>{lang === "FR" ? "Retour aux contrats" : "Voltar aos contratos"}</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-page">
+
+      {/* Compliance modal (Feature D) */}
+      {showComplianceModal && complianceFindings && (
+        <ComplianceReviewModal
+          findings={complianceFindings}
+          lang={lang}
+          onAcknowledge={handleComplianceAcknowledge}
+          onGoBack={handleComplianceGoBack}
+        />
+      )}
 
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-surface-mist sticky top-0 z-50">
@@ -214,7 +312,7 @@ function WizardForm() {
             </div>
             <span className="font-semibold font-serif" style={{ color: "var(--brand-primary)" }}>EasyLaw</span>
             <span className="text-text-muted text-sm hidden sm:inline">
-              / Contrats / {contractType}
+              / Contrats / {template.name}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -242,11 +340,7 @@ function WizardForm() {
                   ? `Question ${currentStep} sur ${totalSteps}`
                   : `Pergunta ${currentStep} de ${totalSteps}`}
               </span>
-              <span>
-                {lang === "FR"
-                  ? `~${minsRemaining} min restantes`
-                  : `~${minsRemaining} min restantes`}
-              </span>
+              <span>{`~${minsRemaining} min restantes`}</span>
             </div>
             <div className="flex items-center gap-1.5">
               {Array.from({ length: totalSteps }, (_, i) => (
@@ -261,7 +355,7 @@ function WizardForm() {
         </div>
       )}
 
-      {/* ── Bandeau permanent responsabilité (EXPERIENCE.md §Contract Liability) ── */}
+      {/* ── Legal disclaimer banner ───────────────────────────────────────── */}
       {!generatedContractId && (
         <div
           role="note"
@@ -331,14 +425,39 @@ function WizardForm() {
           ) : (
             /* ── Question form ───────────────────────────────────────────────── */
             <>
+              {/* Feature A: Free-text generator — shown only at step 1 */}
+              {currentStep === 1 && (
+                <FreeTextGenerator
+                  templateId={templateId}
+                  lang={lang}
+                  onApply={(data) => setFormData((prev) => ({ ...prev, ...data }))}
+                />
+              )}
+
               <p className="text-xs uppercase tracking-wider text-text-muted mb-2">
                 {lang === "FR"
                   ? `Question ${currentStep} sur ${totalSteps}`
                   : `Pergunta ${currentStep} de ${totalSteps}`}
               </p>
-              <h1 id="question-label" className="text-3xl md:text-4xl mb-8">
-                {currentQuestion.label}
+              <h1 id="question-label" className="text-3xl md:text-4xl mb-4">
+                {currentQuestion?.label}
+                {currentQuestion?.optional && (
+                  <span className="ml-3 text-base font-normal text-text-muted align-middle">
+                    ({lang === "FR" ? "optionnel" : "opcional"})
+                  </span>
+                )}
               </h1>
+
+              {/* Feature B: AI suggestion button */}
+              {currentQuestion && (
+                <FieldSuggestionButton
+                  field={currentQuestion}
+                  formData={formData}
+                  templateId={templateId}
+                  lang={lang}
+                  onAccept={handleInputChange}
+                />
+              )}
 
               {error && (
                 <div role="alert" className="p-4 mb-6 rounded-lg border flex gap-2 items-start text-sm"
@@ -352,38 +471,19 @@ function WizardForm() {
                 </div>
               )}
 
-              <div>
-                {currentQuestion.type === "date" ? (
-                  <input
-                    type="date"
-                    aria-labelledby="question-label"
+              {/* Generic field renderer (Feature 0: bug fix) */}
+              {currentQuestion && (
+                <div>
+                  <FieldInput
+                    field={currentQuestion}
                     value={formData[currentQuestion.key] || ""}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    className={CLS_INPUT}
+                    onChange={handleInputChange}
+                    lang={lang}
                   />
-                ) : currentQuestion.type === "number" ? (
-                  <input
-                    type="number"
-                    aria-labelledby="question-label"
-                    value={formData[currentQuestion.key] || ""}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder={currentQuestion.placeholder}
-                    className={CLS_INPUT}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    aria-labelledby="question-label"
-                    value={formData[currentQuestion.key] || ""}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder={currentQuestion.placeholder}
-                    className={CLS_INPUT}
-                  />
-                )}
-              </div>
+                </div>
+              )}
 
-              {/* Déclarations légales obligatoires avant finalisation
-                  (EXPERIENCE.md §Contract Liability — Dir. 2011/83/UE art. 16(m)) */}
+              {/* Legal declarations on last step */}
               {currentStep === totalSteps && (
                 <fieldset className="mt-8 space-y-3 rounded-lg border border-surface-mist bg-surface-card p-4">
                   <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -394,10 +494,7 @@ function WizardForm() {
                       type="checkbox"
                       required
                       checked={confirmAccuracy}
-                      onChange={(e) => {
-                        setConfirmAccuracy(e.target.checked);
-                        setError(null);
-                      }}
+                      onChange={(e) => { setConfirmAccuracy(e.target.checked); setError(null); }}
                       className="mt-0.5 h-4 w-4 shrink-0 rounded border-surface-mist-strong accent-[var(--brand-primary)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
                     />
                     <span className="text-sm text-text-secondary leading-relaxed">
@@ -411,10 +508,7 @@ function WizardForm() {
                       type="checkbox"
                       required
                       checked={waiveWithdrawal}
-                      onChange={(e) => {
-                        setWaiveWithdrawal(e.target.checked);
-                        setError(null);
-                      }}
+                      onChange={(e) => { setWaiveWithdrawal(e.target.checked); setError(null); }}
                       className="mt-0.5 h-4 w-4 shrink-0 rounded border-surface-mist-strong accent-[var(--brand-primary)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/45"
                     />
                     <span className="text-sm text-text-secondary leading-relaxed">
@@ -440,10 +534,10 @@ function WizardForm() {
                 <button
                   type="button"
                   onClick={handleNext}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isReviewing}
                   className={CLS_BTN_PRIMARY}
                 >
-                  {isSubmitting ? (
+                  {(isSubmitting || isReviewing) ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>

@@ -22,7 +22,7 @@ import {
   getDocumentByR2Key,
   VaultDocumentRow,
 } from './storage/vault';
-import { ensureCollections } from './rag-embeddings';
+import { ensureCollections, deleteFromQdrantByFilter } from './rag-embeddings';
 import { standardSearch, deepDiveSearch } from './rag-search';
 import { streamResearch } from './rag-llm';
 import { runIncrementalIndex } from './rag-crawler';
@@ -963,8 +963,7 @@ async function logAudit(
 }
 
 // ---------------------------------------------------------------------------
-// PDF compilation helper — used by /api/contracts/generate (story 6-3) and
-// the legacy fallback path in /vault/:filename for contracts predating R2.
+// Contract text builders — shared by /generate, /preview, and /vault fallback.
 // ---------------------------------------------------------------------------
 interface ClauseVersion {
   clause_key: string;
@@ -972,29 +971,80 @@ interface ClauseVersion {
   loi_reference: string;
 }
 
-async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
-  const clauses = await all<ClauseVersion>(
-    'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
-    [contract.type]
-  );
-  const data = JSON.parse(contract.data_json);
-  let compiledContent = `CONTRAT DE ${String(contract.type).toUpperCase()}\n\n`;
+// Static {key} substitution — used as the reliable fallback.
+function buildContractTextStatic(clauses: ClauseVersion[], data: Record<string, any>, contractType: string): string {
+  let text = `CONTRAT DE ${String(contractType).toUpperCase()}\n\n`;
   if (clauses.length > 0) {
     clauses.forEach((clause) => {
-      let text = clause.content;
-      const matches = text.match(/\{[a-zA-Z0-9_]+\}/g);
+      let t = clause.content;
+      const matches = t.match(/\{[a-zA-Z0-9_]+\}/g);
       if (matches) {
         matches.forEach((m) => {
           const key = m.slice(1, -1);
-          const replacement = data[key] !== undefined ? data[key] : `[${key}]`;
-          text = text.replace(m, replacement);
+          t = t.replace(m, data[key] !== undefined ? String(data[key]) : `[${key}]`);
         });
       }
-      compiledContent += `${text} (Ref: ${clause.loi_reference})\n\n`;
+      text += `${t} (Ref: ${clause.loi_reference})\n\n`;
     });
   } else {
-    compiledContent += `Donnees du contrat :\n` + JSON.stringify(data, null, 2);
+    text += `Données du contrat :\n` + JSON.stringify(data, null, 2);
   }
+  return text;
+}
+
+// AI-enhanced text builder with static fallback on timeout or failure.
+// Tries LLM (contract_clause_generation) with optional RAG context for NDA,
+// falls back to static substitution transparently.
+async function buildContractText(contract: any): Promise<string> {
+  const clauses = await all<ClauseVersion>(
+    'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
+    [contract.type],
+  );
+  const data = JSON.parse(contract.data_json);
+  const userLang: string = data._lang || 'FR';
+
+  if (clauses.length > 0) {
+    try {
+      let ragContext = 'Aucun contexte juridique supplémentaire disponible.';
+      if (contract.type === 'nda') {
+        try {
+          const ragResults = await Promise.race([
+            standardSearch(`accord de confidentialite NDA ${data.objet || ''} droit portugais`, 3),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('rag_timeout')), 4000)),
+          ]);
+          const chunks = (ragResults as any[]).map((r) => r.chunk_text || '').filter(Boolean);
+          if (chunks.length > 0) ragContext = chunks.join('\n\n');
+        } catch {
+          // RAG unavailable — proceed without it
+        }
+      }
+
+      const aiText = await Promise.race([
+        callPrompt('contract_clause_generation', {
+          contract_type: contract.type,
+          clauses_json: JSON.stringify(clauses.map((c) => ({
+            clause_key: c.clause_key,
+            content_template: c.content,
+            loi_reference: c.loi_reference,
+          }))),
+          data_json: JSON.stringify(data),
+          lang: userLang,
+          rag_context: ragContext,
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 10000)),
+      ]);
+
+      if (aiText && aiText.length >= 100) return aiText;
+    } catch (aiErr: any) {
+      console.warn('[buildContractText] AI generation skipped, using static fallback:', aiErr?.message);
+    }
+  }
+
+  return buildContractTextStatic(clauses, data, contract.type);
+}
+
+async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
+  const compiledContent = await buildContractText(contract);
 
   const textLines = compiledContent.split('\n');
   let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
@@ -1112,37 +1162,7 @@ app.get('/api/contracts/:id/preview', authMiddleware, async (req: Request, res: 
       return;
     }
 
-    // Fetch clauses of this type to compile preview
-    interface ClauseVersion {
-      clause_key: string;
-      content: string;
-      loi_reference: string;
-    }
-    const clauses = await all<ClauseVersion>(
-      'SELECT clause_key, content, loi_reference FROM clause_versions WHERE contract_type = ?',
-      [contract.type]
-    );
-
-    const data = JSON.parse(contract.data_json);
-    let compiledContent = `CONTRAT DE ${contract.type.toUpperCase()}\n\n`;
-
-    if (clauses.length > 0) {
-      clauses.forEach((clause) => {
-        let text = clause.content;
-        // Basic template replacement {var}
-        const matches = text.match(/\{[a-zA-Z0-9_]+\}/g);
-        if (matches) {
-          matches.forEach((m) => {
-            const key = m.slice(1, -1);
-            const replacement = data[key] !== undefined ? data[key] : `[${key}]`;
-            text = text.replace(m, replacement);
-          });
-        }
-        compiledContent += `${text} (Ref: ${clause.loi_reference})\n\n`;
-      });
-    } else {
-      compiledContent += `Données du contrat :\n` + JSON.stringify(data, null, 2);
-    }
+    const compiledContent = await buildContractText(contract);
 
     // Audit log preview action
     await logAudit(userId, 'PREVIEW_CONTRACT', 'contract', id as string, req);
@@ -2448,6 +2468,265 @@ app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(ADMIN_ROLES), 
     console.error('[MANUAL TRIGGER] Indexing error:', err?.message),
   );
   res.json({ success: true, message: `Indexing triggered for ${source ?? 'ALL'} sources` });
+});
+
+// ─── Admin: Documents privés du cabinet (RAG) ──────────────────────────────
+
+const _privateRagMulter = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 20 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
+    cb(null, allowed.includes(file.mimetype));
+  },
+}).array('files', 20);
+
+// POST /api/admin/rag/private/upload
+app.post('/api/admin/rag/private/upload', authMiddleware, checkRole(ADMIN_ROLES), (req, res, next) => {
+  _privateRagMulter(req, res, next);
+}, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const files = (req as any).files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
+      res.status(400).json({ success: false, message: 'Aucun fichier fourni' });
+      return;
+    }
+    const userId = (req as any).user.id;
+    const results: Record<string, unknown>[] = [];
+
+    for (const file of files) {
+      let text = '';
+      try {
+        if (file.mimetype === 'application/pdf') {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>;
+          const data = await pdfParse(file.buffer);
+          text = data.text ?? '';
+        } else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          const mammoth = await import('mammoth');
+          const result = await mammoth.extractRawText({ buffer: file.buffer });
+          text = result.value ?? '';
+        } else {
+          text = file.buffer.toString('utf-8');
+        }
+      } catch (extractErr: any) {
+        console.error(`[PRIVATE RAG] Extraction failed for ${file.originalname}:`, extractErr?.message);
+        results.push({ name: file.originalname, success: false, error: 'Extraction du texte impossible' });
+        continue;
+      }
+
+      const wordCount = text.trim().split(/\s+/).filter((w) => w.length > 0).length;
+      if (wordCount < 50) {
+        results.push({ name: file.originalname, success: false, error: `Contenu trop court (${wordCount} mots, minimum 50)` });
+        continue;
+      }
+
+      const vaultResult = await putDocument({
+        buffer: file.buffer,
+        mime_type: file.mimetype,
+        entity_type: 'other',
+        entity_id: null,
+        user_id: userId,
+      });
+
+      const docId = crypto.randomUUID();
+      const rawName = file.originalname.replace(/\.[^.]+$/, '');
+      const title = rawName.replace(/[-_]/g, ' ');
+      const docType = req.body?.[`doctype_${file.originalname}`] ?? 'private';
+
+      await run(
+        `INSERT INTO rag_private_documents
+           (id, user_id, vault_id, title, doc_type, original_filename, mime_type, extracted_text, word_count, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [docId, userId, vaultResult.id, title, docType, file.originalname, file.mimetype, text, wordCount],
+      );
+
+      await logAudit(userId, 'UPLOAD_PRIVATE_RAG', 'rag_private_document', docId, req);
+      results.push({ id: docId, name: file.originalname, success: true, wordCount, title });
+    }
+
+    res.json({ success: true, results });
+  } catch (err: any) {
+    console.error('[PRIVATE RAG] Upload error:', err?.message);
+    res.status(500).json({ success: false, message: err?.message ?? 'Internal server error' });
+  }
+});
+
+// GET /api/admin/rag/private/documents
+app.get('/api/admin/rag/private/documents', authMiddleware, checkRole(ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const docs = await all(
+      `SELECT id, user_id, title, doc_type, original_filename, word_count, mime_type, status, error_message, indexed_at, created_at
+       FROM rag_private_documents WHERE status != 'deleted' ORDER BY created_at DESC`,
+    );
+    res.json({ success: true, documents: docs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message ?? 'Internal server error' });
+  }
+});
+
+// POST /api/admin/rag/private/:id/index
+app.post('/api/admin/rag/private/:id/index', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
+  const id = req.params.id as string;
+  try {
+    const doc = await get<any>('SELECT * FROM rag_private_documents WHERE id = ? AND status != ?', [id, 'deleted']);
+    if (!doc) { res.status(404).json({ success: false, message: 'Document introuvable' }); return; }
+
+    await run('UPDATE rag_private_documents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['indexing', id]);
+
+    const { chunkText } = await import('./rag-crawler');
+    const { embedDocuments, upsertToQdrant } = await import('./rag-embeddings');
+    const externalId = `PRIVATE::${id}`;
+
+    (async () => {
+      try {
+        const chunks = chunkText(doc.extracted_text);
+        if (!chunks.length) throw new Error('Texte vide après découpage');
+
+        const vectors = await embedDocuments(chunks);
+        const points = chunks.map((chunk: string, i: number) => ({
+          id: crypto.randomUUID(),
+          vector: vectors[i],
+          payload: { source: 'PRIVATE', external_id: externalId, title: doc.title, url: `private://${id}`, date: doc.created_at?.slice(0, 10) ?? null, doc_type: doc.doc_type },
+        }));
+
+        await upsertToQdrant('legal_pt', points);
+
+        await run('DELETE FROM legal_documents WHERE source = ? AND external_id = ?', ['PRIVATE', externalId]);
+        for (let i = 0; i < points.length; i++) {
+          await run(
+            `INSERT INTO legal_documents (id, source, external_id, title, url, content_chunk, chunk_index, qdrant_id, date, doc_type)
+             VALUES (?, 'PRIVATE', ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [crypto.randomUUID(), externalId, doc.title, `private://${id}`, chunks[i], i, points[i].id, doc.created_at?.slice(0, 10) ?? null, doc.doc_type],
+          );
+        }
+
+        await run(
+          `UPDATE rag_private_documents SET status = 'indexed', indexed_at = CURRENT_TIMESTAMP, error_message = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          [id],
+        );
+        console.log(`[PRIVATE RAG] Indexed "${doc.title}" — ${chunks.length} chunks`);
+      } catch (err: any) {
+        await run(
+          `UPDATE rag_private_documents SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          [err?.message ?? 'Indexation échouée', id],
+        );
+        console.error(`[PRIVATE RAG] Index error for ${id}:`, err?.message);
+      }
+    })();
+
+    res.json({ success: true, message: 'Indexation lancée en arrière-plan' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message ?? 'Internal server error' });
+  }
+});
+
+// DELETE /api/admin/rag/private/:id
+app.delete('/api/admin/rag/private/:id', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
+  const id = req.params.id as string;
+  try {
+    const doc = await get<any>('SELECT * FROM rag_private_documents WHERE id = ? AND status != ?', [id, 'deleted']);
+    if (!doc) { res.status(404).json({ success: false, message: 'Document introuvable' }); return; }
+
+    if (doc.status === 'indexed') {
+      const externalId = `PRIVATE::${id}`;
+      try {
+        await deleteFromQdrantByFilter('legal_pt', 'PRIVATE', externalId);
+        await run('DELETE FROM legal_documents WHERE source = ? AND external_id = ?', ['PRIVATE', externalId]);
+      } catch (qErr: any) {
+        console.warn('[PRIVATE RAG] Qdrant cleanup warning:', qErr?.message);
+      }
+    }
+
+    await run('UPDATE rag_private_documents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['deleted', id]);
+    await logAudit((req as any).user.id, 'DELETE_PRIVATE_RAG', 'rag_private_document', id, req);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message ?? 'Internal server error' });
+  }
+});
+
+// GET /api/admin/rag/private/checklist.pdf — formulaire de demande de documents au cabinet
+app.get('/api/admin/rag/private/checklist.pdf', authMiddleware, checkRole(ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const PDFDocument = (await import('pdfkit')).default;
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="checklist-documents-cabinet.pdf"');
+    doc.pipe(res);
+
+    const brand = '#1A4B8C';
+    const gray = '#555';
+    const light = '#888';
+
+    doc.fontSize(20).fillColor(brand).text('EasyLaw — Checklist Documents Cabinet', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor(light).text('À remettre au cabinet afin d\'enrichir la base de connaissances IA', { align: 'center' });
+    doc.moveDown(1.2);
+
+    const section = (title: string) => {
+      doc.fontSize(12).fillColor(brand).text(title);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(brand).lineWidth(0.5).stroke();
+      doc.moveDown(0.4);
+    };
+
+    const item = (label: string, detail: string) => {
+      doc.fontSize(10).fillColor(gray).text(`☐  ${label}`, { continued: false });
+      doc.fontSize(8).fillColor(light).text(`    ${detail}`);
+      doc.moveDown(0.3);
+    };
+
+    section('1. Base de connaissances interne');
+    item('Consultations / avis juridiques (anonymisés)', 'Format PDF ou Word — remplacer noms et NIF par [CLIENT] / [NIF]');
+    item('FAQ internes par domaine de pratique', 'Questions fréquentes des clients avec réponses validées par le cabinet');
+    item('Fiches pratiques par type de contrat', 'Clauses essentielles, pièges courants, pratiques du marché portugais');
+    item('Checklists diligence raisonnable', 'Acquisition immobilière, constitution de société, bail commercial, etc.');
+
+    doc.moveDown(0.5);
+    section('2. Modèles de contrats annotés');
+    item('Bail d\'habitation / bail commercial', 'Version annotée avec explications des clauses clés');
+    item('Contrat de travail (CDI / CDD)', 'Modèles conformes au Código do Trabalho + CCT applicables');
+    item('Contrat de prestation de services', 'Pour avocats, consultants, freelances — distinction salarié/indépendant');
+    item('Statuts de société (Lda / SA)', 'Modèles usuels avec pacte d\'associés type');
+    item('Clauses alternatives', 'Variations locataire/bailleur, employé/employeur selon profil client');
+
+    doc.moveDown(0.5);
+    section('3. Jurisprudence commentée');
+    item('Arrêts clés avec commentaires du cabinet', 'STJ, STA, Tribunais da Relação — jurisprudence annotée');
+    item('Veille jurisprudentielle passée', 'Bulletins ou synthèses sur les évolutions dans vos domaines');
+    item('Positions doctrinales retenues par le cabinet', 'Références bibliographiques avec résumé de la position adoptée');
+
+    doc.moveDown(0.5);
+    section('4. Procédures et délais');
+    item('Calendriers procéduraux par type de contentieux', 'Délais légaux, délais pratiques, points de vigilance');
+    item('Guides de procédure internes', 'Tribunal, CAAD, arbitrage — étapes et formulaires types');
+    item('Tarifs judiciaires actualisés', 'Taxa de justiça, honorários, emolumentos notariais');
+
+    doc.moveDown(0.5);
+    section('5. Domaines spécialisés (selon pratique du cabinet)');
+    item('Droit fiscal — circulaires AT commentées', 'Positions CIRS/IRC, TVA, IRS — interprétations retenues');
+    item('Droit du travail — CCT sectoriels', 'Conventions collectives applicables aux clients du cabinet');
+    item('Droit immobilier — NRAU commenté', 'Règles de copropriété, licences d\'urbanisme, reabilitação urbana');
+    item('Droit des sociétés — gouvernance', 'Pactes d\'associés, modèles d\'AG, conventions de vote');
+    item('Compliance & RGPD', 'Politiques internes, modèles de consentement, registres de traitement');
+
+    doc.moveDown(1);
+    doc.fontSize(9).fillColor(light).text(
+      'Instructions de livraison : nommer les fichiers avec un préfixe de domaine (ex: imobiliario_checklist_compra.pdf), '
+      + 'dater chaque document et indiquer la date de dernière révision. '
+      + 'Anonymiser toutes les données clients avant transmission.',
+      { align: 'left' }
+    );
+
+    doc.end();
+  } catch (err: any) {
+    console.error('[CHECKLIST PDF] Error:', err?.message);
+    if (!res.headersSent) res.status(500).json({ success: false, message: 'Génération PDF échouée' });
+  }
 });
 
 // ─── KYC / eIDV — vérification d'identité NIF (Lei 83/2017) ──────────────────
