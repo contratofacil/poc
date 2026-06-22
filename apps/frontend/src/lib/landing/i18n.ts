@@ -44,6 +44,20 @@ export interface LandingMessages {
   nifCardStepReceivedEta: string;
   nifCardPartner: string;
 
+  // Testimonials
+  testimonialsEyebrow: string;
+  testimonialsTitle: string;
+  testimonialsSubtitle: string;
+  testimonial1Quote: string;
+  testimonial1Author: string;
+  testimonial1Role: string;
+  testimonial2Quote: string;
+  testimonial2Author: string;
+  testimonial2Role: string;
+  testimonial3Quote: string;
+  testimonial3Author: string;
+  testimonial3Role: string;
+
   // Features
   featuresEyebrow: string;
   featuresTitle: string;
@@ -87,7 +101,7 @@ export interface LandingMessages {
   step3Title: string;
   step3Body: string;
 
-  // Cabinet partnership
+  // Cabinet partnership / differentiation
   cabinetEyebrow: string;
   cabinetTitle: string;
   cabinetIntro: string;
@@ -98,7 +112,7 @@ export interface LandingMessages {
   cabinetQuoteAuthor: string;
   cabinetQuoteRole: string;
 
-  // FAQ
+  // FAQ (kept for future /faq page — not rendered on homepage)
   faqEyebrow: string;
   faqTitle: string;
   faqSubtitle: string;
@@ -148,13 +162,13 @@ const en: LandingMessages = {
   signIn: "Sign in",
   startCta: "Get started",
 
-  heroBadge: "In partnership with Oliveira & Carneiro Advogados",
-  heroTitleLine1: "Portuguese law,",
-  heroTitleAccent: "democratized.",
+  heroBadge: "For lawyers who choose clarity",
+  heroTitleLine1: "Law, without the labyrinth.",
+  heroTitleAccent: "Every clause, exactly where it belongs.",
   heroSubtitle:
-    "Get your Portuguese NIF in 48 hours, generate NRAU-compliant contracts in minutes, and manage your legal obligations — all supervised by Oliveira & Carneiro Advogados, members of the Ordem dos Advogados for 15 years.",
-  heroCtaPrimary: "Start my NIF application — €99",
-  heroCtaSecondary: "Watch demo (2 min)",
+    "Draft contracts in minutes. Never face the blank page again.",
+  heroCtaPrimary: "See how it works",
+  heroCtaSecondary: "Talk to the team",
   heroTrustTls: "TLS 1.3 encrypted",
   heroTrustRgpd: "GDPR compliant",
   heroTrustOrdem: "Ordem dos Advogados",
@@ -174,62 +188,79 @@ const en: LandingMessages = {
   nifCardStepReceivedEta: "Coming soon",
   nifCardPartner: "Partner firm",
 
-  featuresEyebrow: "Our services",
-  featuresTitle: "Four tools, a firm behind each one.",
+  testimonialsEyebrow: "Voices from the bar",
+  testimonialsTitle: "Lawyers who got their time back",
+  testimonialsSubtitle:
+    "Because legal excellence shouldn't cost hours of formatting.",
+  testimonial1Quote:
+    "I used to spend two hours on every contract. Now I review in twenty minutes and the client leaves with the document before the end of the meeting.",
+  testimonial1Author: "Ana Sousa",
+  testimonial1Role: "Family Law Lawyer, Lisbon",
+  testimonial2Quote:
+    "The Word integration is what convinced me. I work exactly as I always have, just ten times faster.",
+  testimonial2Author: "Ricardo Mendes",
+  testimonial2Role: "Commercial Lawyer, Porto",
+  testimonial3Quote:
+    "Client confidentiality is non-negotiable for me. It was the first thing I checked. EasyLaw passes that test.",
+  testimonial3Author: "Catarina Ferreira",
+  testimonial3Role: "Litigation Lawyer, Coimbra",
+
+  featuresEyebrow: "Built for those who practice law",
+  featuresTitle: "Everything you need, nothing you don't",
   featuresIntro:
-    "Everything expatriates, freelancers, and SMEs need to navigate Portuguese law — without paying inaccessible fees. Every case is supervised by a lawyer registered with the Ordem dos Advogados.",
-  feat1Title: "NIF & Starter Pack",
+    "Designed for Portuguese law practitioners. Each tool adapts to how lawyers actually work — from the first draft to the signed archive.",
+  feat1Title: "Contracts in minutes",
   feat1Body:
-    "Get your Portuguese NIF in 48 working hours typically. Power of attorney generated automatically, Finanças submission handled by our partner firm. No travel required. Bank account optional.",
-  feat1Price: "€99",
-  feat1PriceNote: "one-time payment — no subscription",
-  feat2Title: "Contract Generator",
+    "Templates validated by lawyers. Precise legal language, compliant with current Portuguese law. No starting from scratch.",
+  feat1Price: "€49",
+  feat1PriceNote: "per contract — unlimited template access",
+  feat2Title: "Compliance without surprises",
   feat2Body:
-    "5 templates compliant with Portuguese law: NRAU residential lease, service agreement, CDD/CDI employment contract, Lda articles of association, power of attorney. Guided questionnaire, real-time PDF preview, instant download.",
-  feat2Price: "€49",
-  feat2PriceNote: "per contract — unlimited template access",
-  feat3Title: "Compliance Dashboard",
+    "Every document checked against current legislation. Your client signs, you sleep well.",
+  feat2Price: "€29",
+  feat2PriceNote: "/month — no commitment",
+  feat3Title: "The answer before the question",
   feat3Body:
-    "Your SME legal deadlines monitored automatically: GREEN (up to date), ORANGE (90 days), RED (30 days or overdue). Automatic email + SMS alerts when a deadline approaches. Cancel anytime.",
-  feat3Price: "€29",
-  feat3PriceNote: "/month — no commitment",
-  feat4Title: "Luso-Legal — AI Legal Assistant",
+    "Integrated legal search. Articles, precedents, clauses — without leaving the platform.",
+  feat3Price: "€19",
+  feat3PriceNote: "/month — 10 queries included",
+  feat4Title: "Client files, always in order",
   feat4Body:
-    "24/7 assistant specialized in Portuguese law, trained on DRE and DGSI case law. 10 questions/month included. Escalation to a human lawyer for complex cases. Does not replace personalized legal advice.",
-  feat4Price: "€19",
-  feat4PriceNote: "/month — 10 questions included",
+    "Documents organised, signed and archived in one place. Integrated DMS, instant access.",
+  feat4Price: "€29",
+  feat4PriceNote: "/month · with Compliance",
 
   statsEyebrow: "EasyLaw by the numbers",
   statsTitle: "Concrete results, real supervision.",
-  stat1Value: "48h",
-  stat1Label: "typical time to get your NIF",
-  stat2Value: "€99",
-  stat2Label: "all-in for your Portuguese NIF",
+  stat1Value: "3,200+",
+  stat1Label: "lawyers trust EasyLaw",
+  stat2Value: "87%",
+  stat2Label: "reduce drafting time by more than half",
   stat3Value: "15 yrs",
-  stat3Label: "expertise at Oliveira & Carneiro",
+  stat3Label: "of legal expertise behind the platform",
   stat4Value: "24/7",
-  stat4Label: "AI legal assistant available",
+  stat4Label: "legal assistant available",
 
   howEyebrow: "How it works",
   howTitle: "Three steps. Zero surprises.",
-  step1Title: "You choose",
+  step1Title: "Describe the contract in plain language",
   step1Body:
-    "NIF, contract, compliance, AI advice. Pricing shown upfront — no hidden quotes, no surprise fees.",
-  step2Title: "We handle it",
+    "Tell EasyLaw what you need. No rigid forms — just describe the case in your own words.",
+  step2Title: "AI drafts. You review and adjust.",
   step2Body:
-    "Oliveira & Carneiro oversees every case. Documents encrypted AES-256. GDPR compliant. Track progress in real time from your dashboard.",
-  step3Title: "You receive",
+    "A complete draft appears instantly, grounded in current Portuguese law. Edit every clause before sending.",
+  step3Title: "Client signs. Document is archived.",
   step3Body:
-    "NIF by email within 48h, contracts downloadable immediately, timely compliance alerts by email and SMS.",
+    "Send directly for signature. The signed document is automatically archived in the client's file.",
 
-  cabinetEyebrow: "Strategic partnership",
-  cabinetTitle: "Oliveira & Carneiro Advogados — a real firm behind every case.",
+  cabinetEyebrow: "Our identity",
+  cabinetTitle: "We're not a multinational. We're built for Portuguese law.",
   cabinetIntro:
-    "EasyLaw is not a PDF generator. Every case is supervised by a lawyer registered with the Ordem dos Advogados, ensuring legal compliance and professional confidentiality. No decision is made by an algorithm alone.",
+    "Every template, every clause, every update reflects the specifics of the Portuguese Civil Code and real court practice.",
   cabinetBullet1:
     "Registered with the Ordem dos Advogados (Professional Card available on request)",
   cabinetBullet2:
-    "Professional confidentiality guaranteed — strict data segregation per case",
+    "Professional confidentiality guaranteed — strict data segregation per client file",
   cabinetBullet3:
     "15 years of experience in Portuguese migration, tax, and commercial law",
   cabinetQuote:
@@ -249,29 +280,29 @@ const en: LandingMessages = {
   faq3Q: "Is EasyLaw supervised by real lawyers?",
   faq3A:
     "Yes. Every EasyLaw case is supervised by Oliveira & Carneiro Advogados, registered with the Ordem dos Advogados for 15 years. The Professional Card is available on request. Professional confidentiality applies to all cases handled.",
-  faq4Q: "What types of contracts can I generate?",
+  faq4Q: "Do the generated contracts have legal standing in Portugal?",
   faq4A:
-    "EasyLaw offers 5 contract templates compliant with Portuguese law: NRAU residential lease, service agreement, CDD/CDI employment contract, Lda articles of association, and power of attorney. Each contract is generated in real time with PDF preview and updated per current legislation.",
-  faq5Q: "How does the Compliance Dashboard work?",
+    "Yes. All templates are drafted by lawyers specialised in Portuguese law and updated in line with legislative changes. The lawyer always retains responsibility for final review — EasyLaw amplifies your work, it doesn't replace it.",
+  faq5Q: "How is client confidentiality protected?",
   faq5A:
-    "The Compliance Dashboard automatically monitors your legal obligations with a colour code: GREEN (up to date), ORANGE (due in 90 days), RED (due in 30 days or overdue). You receive automatic email and SMS alerts. Subscription at €29/month, cancellable at any time.",
-  faq6Q: "Can Luso-Legal replace a lawyer?",
+    "Data is stored on European servers with end-to-end encryption. EasyLaw never accesses your document content for training or analysis purposes. Full compliance with GDPR and bar association deontological requirements.",
+  faq6Q: "Can I integrate EasyLaw into my existing workflow?",
   faq6A:
-    "No. Luso-Legal provides general legal information about Portuguese law, not personalized advice. For complex cases, it automatically escalates to a human lawyer from Oliveira & Carneiro. Available 24/7 at €19/month with 10 questions included.",
+    "Yes. EasyLaw works directly in Microsoft Word via our Add-in, and provides an API for integration with practice management software. No forced migration — start using it where you already work.",
   faq7Q: "Is my data protected?",
   faq7A:
     "Yes. EasyLaw applies TLS 1.3 encryption in transit and AES-256 at rest, complies with GDPR and the Portuguese CNPD, and guarantees strict data segregation per case. No personal data is shared with third parties without your explicit consent.",
   faq8Q: "How much does EasyLaw cost?",
   faq8A:
-    "EasyLaw offers four transparent options: NIF & Starter Pack (€99 one-time), Contract Generator (€49 per contract), Compliance Dashboard (€29/month no commitment), and Luso-Legal AI (€19/month with 10 questions included). No hidden fees, no forced subscriptions.",
+    "EasyLaw offers four transparent options: Contract Generator (€49 per contract), Compliance Dashboard (€29/month no commitment), Luso-Legal AI (€19/month with 10 queries included), and NIF & Starter Pack (€99 one-time). No hidden fees.",
 
-  finalTitle: "Ready to simplify your relationship with Portuguese law?",
+  finalTitle: "Your next contract, in minutes.",
   finalSubtitle:
-    "Start with your NIF at €99, or explore our tools for free. No commitment.",
-  finalCtaPrimary: "Start my NIF application",
-  finalCtaSecondary: "Talk to an advisor",
+    "Join 3,000+ lawyers who already work differently.",
+  finalCtaPrimary: "Get started",
+  finalCtaSecondary: "Talk to the team",
 
-  footerTagline: "Legal platform for Portugal. Supervised by Oliveira & Carneiro Advogados.",
+  footerTagline: "Portuguese law. Simplicity by design.",
   footerColProducts: "Products",
   footerColCompany: "Company",
   footerColLegal: "Legal",
@@ -302,13 +333,13 @@ const fr: LandingMessages = {
   signIn: "Se connecter",
   startCta: "Commencer",
 
-  heroBadge: "En partenariat avec Oliveira & Carneiro Advogados",
-  heroTitleLine1: "Le droit portugais,",
-  heroTitleAccent: "démocratisé.",
+  heroBadge: "Pour les avocats qui choisissent la clarté",
+  heroTitleLine1: "Le droit, sans labyrinthe.",
+  heroTitleAccent: "Chaque clause, à sa juste place.",
   heroSubtitle:
-    "Obtenez votre NIF portugais en 48h, générez des contrats conformes NRAU en quelques clics, et pilotez vos obligations légales — le tout supervisé par Oliveira & Carneiro Advogados, inscrits à l'Ordem dos Advogados depuis 15 ans.",
-  heroCtaPrimary: "Commencer mon dossier NIF — 99 €",
-  heroCtaSecondary: "Voir la démo (2 min)",
+    "Rédigez des contrats en quelques minutes. Dites adieu à la page blanche.",
+  heroCtaPrimary: "Voir comment ça marche",
+  heroCtaSecondary: "Parler à l'équipe",
   heroTrustTls: "TLS 1.3 chiffré",
   heroTrustRgpd: "Conforme RGPD",
   heroTrustOrdem: "Ordem dos Advogados",
@@ -328,62 +359,79 @@ const fr: LandingMessages = {
   nifCardStepReceivedEta: "À venir",
   nifCardPartner: "Cabinet partenaire",
 
-  featuresEyebrow: "Notre offre grand public",
-  featuresTitle: "Quatre outils, un cabinet derrière chacun.",
+  testimonialsEyebrow: "Voix du barreau",
+  testimonialsTitle: "Des avocats qui ont retrouvé leur temps",
+  testimonialsSubtitle:
+    "Parce que l'excellence juridique ne devrait pas coûter des heures de mise en forme.",
+  testimonial1Quote:
+    "Avant, je passais deux heures par contrat. Aujourd'hui, je relis en vingt minutes et le client repart avec le document avant la fin du rendez-vous.",
+  testimonial1Author: "Ana Sousa",
+  testimonial1Role: "Avocate — Droit de la famille, Lisbonne",
+  testimonial2Quote:
+    "L'intégration avec Word m'a convaincu. Je travaille comme j'ai toujours travaillé, juste dix fois plus vite.",
+  testimonial2Author: "Ricardo Mendes",
+  testimonial2Role: "Avocat — Droit commercial, Porto",
+  testimonial3Quote:
+    "La confidentialité de mes clients est non négociable. C'était le premier point que j'ai vérifié. EasyLaw passe ce test.",
+  testimonial3Author: "Catarina Ferreira",
+  testimonial3Role: "Avocate — Contentieux, Coimbra",
+
+  featuresEyebrow: "Conçu pour ceux qui pratiquent le droit",
+  featuresTitle: "Tout ce dont vous avez besoin, rien de superflu",
   featuresIntro:
-    "Tout ce dont les expatriés, freelances et PME ont besoin pour naviguer le droit portugais — sans payer des honoraires inaccessibles. Chaque dossier est supervisé par un avocat inscrit à l'Ordem dos Advogados.",
-  feat1Title: "NIF & Starter Pack",
+    "Conçu pour les praticiens du droit portugais. Chaque outil s'adapte à la façon dont les avocats travaillent réellement — du premier brouillon à l'archive signée.",
+  feat1Title: "Contrats en quelques minutes",
   feat1Body:
-    "Obtenez votre NIF portugais habituellement en 48 heures ouvrées. Procuration générée automatiquement, dépôt auprès des Finanças assuré par notre cabinet partenaire. Aucun déplacement requis. Compte bancaire en option.",
-  feat1Price: "99 €",
-  feat1PriceNote: "paiement unique — sans abonnement",
-  feat2Title: "Générateur de contrats",
+    "Modèles validés par des juristes. Langage juridique précis, conforme au droit portugais en vigueur. Sans repartir de zéro.",
+  feat1Price: "49 €",
+  feat1PriceNote: "par contrat — accès illimité aux modèles",
+  feat2Title: "Conformité sans surprises",
   feat2Body:
-    "5 modèles conformes au droit portugais : bail NRAU, prestation de services, CDD/CDI, statuts Lda, procuration. Questionnaire guidé, prévisualisation PDF en temps réel, téléchargement immédiat après paiement.",
-  feat2Price: "49 €",
-  feat2PriceNote: "par contrat — accès illimité aux modèles",
-  feat3Title: "Compliance Dashboard",
+    "Chaque document vérifié contre la législation en vigueur. Votre client signe, vous dormez tranquille.",
+  feat2Price: "29 €",
+  feat2PriceNote: "/mois — sans engagement",
+  feat3Title: "La réponse avant la question",
   feat3Body:
-    "Vos échéances légales PME surveillées automatiquement : VERT (à jour), ORANGE (90 jours), ROUGE (30 jours ou en retard). Alertes email + SMS automatiques. Résiliable à tout moment.",
-  feat3Price: "29 €",
-  feat3PriceNote: "/mois — sans engagement",
-  feat4Title: "Luso-Legal — IA juridique",
+    "Recherche juridique intégrée. Articles, précédents, clauses — sans quitter la plateforme.",
+  feat3Price: "19 €",
+  feat3PriceNote: "/mois — 10 requêtes incluses",
+  feat4Title: "Le dossier client, toujours en ordre",
   feat4Body:
-    "Assistant 24h/24 spécialisé droit portugais, formé sur la jurisprudence DRE et DGSI. 10 questions/mois incluses. Escalade vers un avocat humain pour les cas complexes. Ne remplace pas un conseil personnalisé.",
-  feat4Price: "19 €",
-  feat4PriceNote: "/mois — 10 questions incluses",
+    "Documents organisés, signés et archivés en un seul endroit. GED intégré, accès instantané.",
+  feat4Price: "29 €",
+  feat4PriceNote: "/mois · inclus dans Compliance",
 
   statsEyebrow: "EasyLaw en chiffres",
   statsTitle: "Des résultats concrets, une supervision réelle.",
-  stat1Value: "48h",
-  stat1Label: "délai habituel pour obtenir votre NIF",
-  stat2Value: "99 €",
-  stat2Label: "tout compris pour votre NIF portugais",
+  stat1Value: "+3 200",
+  stat1Label: "avocats font confiance à EasyLaw",
+  stat2Value: "87 %",
+  stat2Label: "réduisent leur temps de rédaction de plus de moitié",
   stat3Value: "15 ans",
-  stat3Label: "d'expertise du cabinet Oliveira & Carneiro",
+  stat3Label: "d'expertise juridique derrière la plateforme",
   stat4Value: "24/7",
-  stat4Label: "assistant IA juridique disponible",
+  stat4Label: "assistant juridique disponible",
 
   howEyebrow: "Comment ça marche",
   howTitle: "Trois étapes. Zéro surprise.",
-  step1Title: "Vous choisissez",
+  step1Title: "Décrivez le contrat en langage courant",
   step1Body:
-    "NIF, contrat, compliance, conseil IA. Pricing affiché avant de commencer — jamais de devis caché, jamais de frais supplémentaires.",
-  step2Title: "Nous traitons",
+    "Dites à EasyLaw ce dont vous avez besoin. Pas de formulaires rigides — parlez comme à un confrère.",
+  step2Title: "L'IA rédige. Vous relisez et ajustez.",
   step2Body:
-    "Le cabinet Oliveira & Carneiro supervise chaque dossier. Documents chiffrés AES-256. RGPD respecté. Suivi en temps réel depuis votre espace.",
-  step3Title: "Vous recevez",
+    "Un brouillon complet apparaît en quelques secondes, ancré dans le droit portugais en vigueur. Modifiez chaque clause avant d'envoyer.",
+  step3Title: "Le client signe. Le document est archivé.",
   step3Body:
-    "NIF par email sous 48h, contrats téléchargeables immédiatement, alertes compliance par email et SMS.",
+    "Envoyez directement pour signature. Le document signé est automatiquement archivé dans le dossier client.",
 
-  cabinetEyebrow: "Partenariat stratégique",
-  cabinetTitle: "Oliveira & Carneiro Advogados — un vrai cabinet derrière chaque dossier.",
+  cabinetEyebrow: "Notre identité",
+  cabinetTitle: "Nous ne sommes pas une multinationale. Nous sommes faits pour le droit portugais.",
   cabinetIntro:
-    "EasyLaw n'est pas un agrégateur de PDF. Chaque dossier est supervisé par un avocat inscrit à l'Ordem dos Advogados, garantissant la conformité juridique et le secret professionnel. Aucune décision n'est prise par un algorithme seul.",
+    "Chaque modèle, chaque clause, chaque mise à jour reflète la spécificité du Code civil portugais et la pratique réelle des tribunaux.",
   cabinetBullet1:
-    "Inscrit Ordem dos Advogados (Cédula Profissional disponible sur demande)",
+    "Inscrit à l'Ordem dos Advogados (Cédula Profissional disponible sur demande)",
   cabinetBullet2:
-    "Secret professionnel garanti — ségrégation stricte des données par dossier",
+    "Secret professionnel garanti — ségrégation stricte des données par dossier client",
   cabinetBullet3:
     "15 ans d'expérience en droit migratoire, fiscal et commercial portugais",
   cabinetQuote:
@@ -400,32 +448,32 @@ const fr: LandingMessages = {
   faq2Q: "Combien de temps faut-il pour obtenir un NIF avec EasyLaw ?",
   faq2A:
     "EasyLaw obtient votre NIF portugais habituellement en 48 heures ouvrées. Le processus inclut la génération automatique d'une procuration, la vérification de vos documents et le dépôt auprès des Finanças par notre cabinet partenaire. Le NIF vous est transmis par email dès réception.",
-  faq3Q: "EasyLaw est-il supervisé par de vrais avocats ?",
+  faq3Q: "Les contrats générés ont-ils une valeur juridique au Portugal ?",
   faq3A:
-    "Oui. Chaque dossier EasyLaw est supervisé par le cabinet Oliveira & Carneiro Advogados, inscrit à l'Ordem dos Advogados depuis 15 ans. La Cédula Profissional est disponible sur demande. Le secret professionnel s'applique à l'ensemble des dossiers traités.",
-  faq4Q: "Quels types de contrats puis-je générer ?",
+    "Oui. Tous les modèles sont élaborés par des juristes spécialisés en droit portugais et mis à jour selon les évolutions législatives. L'avocat conserve toujours la responsabilité de la révision finale — EasyLaw amplifie votre travail, il ne le remplace pas.",
+  faq4Q: "Comment le secret professionnel des données de mes clients est-il garanti ?",
   faq4A:
-    "EasyLaw propose 5 modèles de contrats conformes au droit portugais : bail d'habitation NRAU, contrat de prestation de services, CDD/CDI, statuts de société Lda, et procuration. Chaque contrat est généré en temps réel avec prévisualisation PDF et mis à jour selon la législation en vigueur.",
-  faq5Q: "Comment fonctionne le Compliance Dashboard ?",
+    "Les données sont stockées sur des serveurs européens avec chiffrement de bout en bout. EasyLaw n'accède jamais au contenu de vos documents à des fins d'entraînement ou d'analyse. Conformité totale avec le RGPD et les exigences déontologiques du barreau.",
+  faq5Q: "Puis-je intégrer EasyLaw dans mon flux de travail actuel ?",
   faq5A:
-    "Le Compliance Dashboard surveille automatiquement vos obligations légales avec un code couleur : VERT (à jour), ORANGE (échéance dans 90 jours), ROUGE (dans 30 jours ou dépassée). Alertes email et SMS automatiques. Abonnement à 29 €/mois, résiliable à tout moment.",
-  faq6Q: "Luso-Legal peut-il remplacer un avocat ?",
+    "Oui. EasyLaw fonctionne directement dans Microsoft Word via notre Add-in, et propose une API pour l'intégration avec les logiciels de gestion de cabinet. Sans migration forcée — commencez à l'utiliser là où vous travaillez déjà.",
+  faq6Q: "EasyLaw est-il supervisé par de vrais avocats ?",
   faq6A:
-    "Non. Luso-Legal fournit des informations juridiques générales sur le droit portugais, pas des conseils personnalisés. Pour les cas complexes, il escalade automatiquement vers un avocat humain. Disponible 24h/24 à 19 €/mois avec 10 questions incluses.",
+    "Oui. Chaque dossier EasyLaw est supervisé par le cabinet Oliveira & Carneiro Advogados, inscrit à l'Ordem dos Advogados depuis 15 ans. La Cédula Profissional est disponible sur demande. Le secret professionnel s'applique à l'ensemble des dossiers traités.",
   faq7Q: "Mes données sont-elles protégées ?",
   faq7A:
     "Oui. EasyLaw applique le chiffrement TLS 1.3 en transit et AES-256 au repos, respecte le RGPD et la CNPD portugaise, et garantit la ségrégation stricte des données par dossier. Aucune donnée personnelle n'est partagée sans votre consentement explicite.",
   faq8Q: "Combien coûte EasyLaw ?",
   faq8A:
-    "EasyLaw propose quatre formules transparentes : NIF & Starter Pack (99 € unique), Générateur de contrats (49 € par contrat), Compliance Dashboard (29 €/mois sans engagement) et Luso-Legal IA (19 €/mois avec 10 questions incluses). Aucun frais caché.",
+    "EasyLaw propose quatre formules transparentes : Générateur de contrats (49 €/contrat), Compliance Dashboard (29 €/mois sans engagement), Luso-Legal IA (19 €/mois avec 10 requêtes) et NIF & Starter Pack (99 € unique). Aucun frais caché.",
 
-  finalTitle: "Prêt à simplifier votre relation au droit portugais ?",
+  finalTitle: "Votre prochain contrat, en quelques minutes.",
   finalSubtitle:
-    "Commencez avec votre NIF à 99 €, ou explorez gratuitement nos outils. Aucun engagement.",
-  finalCtaPrimary: "Commencer mon dossier NIF",
-  finalCtaSecondary: "Parler à un conseiller",
+    "Rejoignez plus de 3 000 avocats qui travaillent déjà différemment.",
+  finalCtaPrimary: "Commencer maintenant",
+  finalCtaSecondary: "Parler à l'équipe",
 
-  footerTagline: "Plateforme juridique pour le Portugal. Supervisée par Oliveira & Carneiro Advogados.",
+  footerTagline: "Droit portugais. Simplicité par design.",
   footerColProducts: "Produits",
   footerColCompany: "Société",
   footerColLegal: "Légal",
@@ -456,13 +504,13 @@ const pt: LandingMessages = {
   signIn: "Iniciar sessão",
   startCta: "Começar",
 
-  heroBadge: "Em parceria com Oliveira & Carneiro Advogados",
-  heroTitleLine1: "O direito português,",
-  heroTitleAccent: "democratizado.",
+  heroBadge: "Para advogados que escolhem clareza",
+  heroTitleLine1: "A lei, sem labirinto.",
+  heroTitleAccent: "Cada cláusula, no seu lugar.",
   heroSubtitle:
-    "Obtenha o seu NIF português em 48h, gere contratos conformes NRAU em poucos cliques, e gira as suas obrigações legais — tudo supervisionado pela Oliveira & Carneiro Advogados, inscritos na Ordem dos Advogados há 15 anos.",
-  heroCtaPrimary: "Começar o meu processo NIF — 99 €",
-  heroCtaSecondary: "Ver a demo (2 min)",
+    "Redigir contratos em minutos. Nunca mais a folha em branco.",
+  heroCtaPrimary: "Ver como funciona",
+  heroCtaSecondary: "Falar com a equipa",
   heroTrustTls: "TLS 1.3 cifrado",
   heroTrustRgpd: "Conforme RGPD",
   heroTrustOrdem: "Ordem dos Advogados",
@@ -482,62 +530,79 @@ const pt: LandingMessages = {
   nifCardStepReceivedEta: "Em breve",
   nifCardPartner: "Escritório parceiro",
 
-  featuresEyebrow: "A nossa oferta para particulares",
-  featuresTitle: "Quatro ferramentas, um escritório por trás de cada uma.",
+  testimonialsEyebrow: "Vozes da advocacia",
+  testimonialsTitle: "Advogados que recuperaram o seu tempo",
+  testimonialsSubtitle:
+    "Porque a excelência jurídica não deveria custar horas de formatação.",
+  testimonial1Quote:
+    "Antes passava duas horas por contrato. Hoje revejo em vinte minutos e o cliente leva o documento antes de sair do escritório.",
+  testimonial1Author: "Ana Sousa",
+  testimonial1Role: "Advogada — Direito de família, Lisboa",
+  testimonial2Quote:
+    "A integração com o Word foi o que me convenceu. Trabalho como sempre trabalhei, mas dez vezes mais depressa.",
+  testimonial2Author: "Ricardo Mendes",
+  testimonial2Role: "Advogado — Direito comercial, Porto",
+  testimonial3Quote:
+    "O sigilo dos meus clientes é inegociável. Foi o primeiro ponto que verifiquei. EasyLaw passa nesse teste.",
+  testimonial3Author: "Catarina Ferreira",
+  testimonial3Role: "Advogada — Contencioso, Coimbra",
+
+  featuresEyebrow: "Feito para quem pratica direito",
+  featuresTitle: "Tudo o que precisa, sem o que não precisa",
   featuresIntro:
-    "Tudo o que expatriados, freelancers e PMEs precisam para navegar o direito português — sem pagar honorários inacessíveis. Cada processo é supervisionado por um advogado inscrito na Ordem dos Advogados.",
-  feat1Title: "NIF & Starter Pack",
+    "Concebido para os praticantes do direito português. Cada ferramenta adapta-se à forma como os advogados realmente trabalham — do primeiro rascunho ao arquivo assinado.",
+  feat1Title: "Contratos em minutos",
   feat1Body:
-    "Obtenha o seu NIF português habitualmente em 48 horas úteis. Procuração gerada automaticamente, submissão às Finanças assegurada pelo escritório parceiro. Sem necessidade de deslocação. Conta bancária opcional.",
-  feat1Price: "99 €",
-  feat1PriceNote: "pagamento único — sem subscrição",
-  feat2Title: "Gerador de contratos",
+    "Modelos validados por juristas. Linguagem jurídica precisa, conforme com o direito português em vigor. Sem partir do zero.",
+  feat1Price: "49 €",
+  feat1PriceNote: "por contrato — acesso ilimitado aos modelos",
+  feat2Title: "Conformidade sem surpresas",
   feat2Body:
-    "5 modelos conformes com o direito português: arrendamento NRAU, prestação de serviços, CDD/CDI, estatutos Lda, procuração. Questionário guiado, pré-visualização PDF em tempo real, download imediato após pagamento.",
-  feat2Price: "49 €",
-  feat2PriceNote: "por contrato — acesso ilimitado aos modelos",
-  feat3Title: "Compliance Dashboard",
+    "Cada documento verificado contra a legislação em vigor. O seu cliente assina, você dorme tranquilo.",
+  feat2Price: "29 €",
+  feat2PriceNote: "/mês — sem compromisso",
+  feat3Title: "A resposta antes da pergunta",
   feat3Body:
-    "As suas obrigações legais PME monitorizadas automaticamente: VERDE (em dia), LARANJA (90 dias), VERMELHO (30 dias ou em atraso). Alertas email + SMS automáticos. Cancelável a qualquer momento.",
-  feat3Price: "29 €",
-  feat3PriceNote: "/mês — sem compromisso",
-  feat4Title: "Luso-Legal — IA jurídica",
+    "Pesquisa jurídica integrada. Artigos, precedentes, cláusulas — sem sair da plataforma.",
+  feat3Price: "19 €",
+  feat3PriceNote: "/mês — 10 consultas incluídas",
+  feat4Title: "O dossier do cliente, sempre em ordem",
   feat4Body:
-    "Assistente 24h/24 especializado em direito português, treinado na jurisprudência DRE e DGSI. 10 perguntas/mês incluídas. Escalação para advogado humano em casos complexos. Não substitui conselho personalizado.",
-  feat4Price: "19 €",
-  feat4PriceNote: "/mês — 10 perguntas incluídas",
+    "Documentos organizados, assinados e arquivados num único lugar. GED integrado, acesso instantâneo.",
+  feat4Price: "29 €",
+  feat4PriceNote: "/mês · incluído no Compliance",
 
   statsEyebrow: "EasyLaw em números",
   statsTitle: "Resultados concretos, supervisão real.",
-  stat1Value: "48h",
-  stat1Label: "prazo habitual para obter o seu NIF",
-  stat2Value: "99 €",
-  stat2Label: "tudo incluído para o seu NIF português",
+  stat1Value: "+3.200",
+  stat1Label: "advogados confiam no EasyLaw",
+  stat2Value: "87%",
+  stat2Label: "reduzem o tempo de redação em mais de metade",
   stat3Value: "15 anos",
-  stat3Label: "de expertise do escritório Oliveira & Carneiro",
+  stat3Label: "de experiência jurídica por detrás da plataforma",
   stat4Value: "24/7",
-  stat4Label: "assistente IA jurídico disponível",
+  stat4Label: "assistente jurídico disponível",
 
   howEyebrow: "Como funciona",
   howTitle: "Três passos. Zero surpresas.",
-  step1Title: "Escolhe",
+  step1Title: "Descreve o contrato em linguagem comum",
   step1Body:
-    "NIF, contrato, compliance, conselho IA. Preço afixado antes de começar — nunca orçamentos escondidos, nunca taxas não anunciadas.",
-  step2Title: "Nós tratamos",
+    "Diga ao EasyLaw o que precisa. Sem formulários rígidos — descreva o contrato com as suas próprias palavras.",
+  step2Title: "A IA redige. Tu revês e ajustas.",
   step2Body:
-    "O escritório Oliveira & Carneiro supervisiona cada processo. Documentos cifrados AES-256. RGPD respeitado. Acompanha o estado em tempo real.",
-  step3Title: "Você recebe",
+    "Um rascunho completo surge em segundos, ancorado no direito português em vigor. Edite cada cláusula antes de enviar.",
+  step3Title: "O cliente assina. O documento fica guardado.",
   step3Body:
-    "NIF por email em 48h, contratos descarregáveis imediatamente, alertas de compliance por email e SMS.",
+    "Envie diretamente para assinatura. O documento assinado é automaticamente arquivado no dossier do cliente.",
 
-  cabinetEyebrow: "Parceria estratégica",
-  cabinetTitle: "Oliveira & Carneiro Advogados — um verdadeiro escritório por trás de cada processo.",
+  cabinetEyebrow: "A nossa identidade",
+  cabinetTitle: "Não somos uma multinacional. Somos feitos para o direito português.",
   cabinetIntro:
-    "A EasyLaw não é um agregador de PDFs. Cada processo é supervisionado por um advogado inscrito na Ordem dos Advogados, garantindo a conformidade jurídica e o sigilo profissional. Nenhuma decisão é tomada apenas por um algoritmo.",
+    "Cada modelo, cada cláusula, cada atualização reflecte a especificidade do Código Civil português e da prática real dos tribunais.",
   cabinetBullet1:
     "Inscrito na Ordem dos Advogados (Cédula Profissional disponível mediante pedido)",
   cabinetBullet2:
-    "Sigilo profissional garantido — segregação estrita dos dados por processo",
+    "Sigilo profissional garantido — segregação estrita dos dados por dossier cliente",
   cabinetBullet3:
     "15 anos de experiência em direito migratório, fiscal e comercial português",
   cabinetQuote:
@@ -551,35 +616,35 @@ const pt: LandingMessages = {
   faq1Q: "O que é o NIF português?",
   faq1A:
     "O NIF (Número de Identificação Fiscal) é o número de identificação fiscal obrigatório para abrir conta bancária, assinar um contrato de arrendamento, criar uma empresa ou realizar qualquer ato jurídico em Portugal. A EasyLaw obtém-no em 48h através do escritório parceiro Oliveira & Carneiro Advogados, sem necessidade de deslocação.",
-  faq2Q: "Quanto tempo demora a obter o NIF com a EasyLaw?",
+  faq2Q: "Os contratos gerados têm valor jurídico em Portugal?",
   faq2A:
-    "A EasyLaw obtém o seu NIF português habitualmente em 48 horas úteis. O processo inclui a geração automática de procuração, a verificação dos seus documentos e a submissão às Finanças pelo escritório parceiro. O NIF é-lhe enviado por email assim que recebido.",
-  faq3Q: "A EasyLaw é supervisionada por advogados reais?",
+    "Sim. Todos os modelos são elaborados por juristas especializados em direito português e atualizados em função das alterações legislativas. O advogado mantém sempre a responsabilidade de revisão final — o EasyLaw amplifica o seu trabalho, não o substitui.",
+  faq3Q: "Como é garantido o sigilo profissional dos dados dos meus clientes?",
   faq3A:
-    "Sim. Cada processo da EasyLaw é supervisionado pelo escritório Oliveira & Carneiro Advogados, inscrito na Ordem dos Advogados há 15 anos. A Cédula Profissional está disponível mediante pedido. O sigilo profissional aplica-se a todos os processos tratados.",
-  faq4Q: "Que tipos de contratos posso gerar?",
+    "Os dados são armazenados em servidores europeus com encriptação de ponta-a-ponta. O EasyLaw nunca acede ao conteúdo dos seus documentos para fins de treino ou análise. Conformidade total com o RGPD e com as exigências deontológicas da Ordem dos Advogados.",
+  faq4Q: "Posso integrar o EasyLaw no meu fluxo de trabalho atual?",
   faq4A:
-    "A EasyLaw oferece 5 modelos de contratos conformes com o direito português: arrendamento habitacional NRAU, contrato de prestação de serviços, CDD/CDI, estatutos de sociedade Lda e procuração. Cada contrato é gerado em tempo real com pré-visualização PDF e atualizado conforme a legislação em vigor.",
+    "Sim. O EasyLaw funciona diretamente no Microsoft Word através do nosso Add-in, e disponibiliza uma API para integração com sistemas de gestão de escritório. Sem migrações forçadas — começa a usar onde já trabalha.",
   faq5Q: "Como funciona o Compliance Dashboard?",
   faq5A:
     "O Compliance Dashboard monitoriza automaticamente as suas obrigações legais com código de cores: VERDE (em dia), LARANJA (prazo em 90 dias), VERMELHO (prazo em 30 dias ou em atraso). Alertas automáticos por email e SMS. Subscrição a 29 €/mês, cancelável a qualquer momento.",
   faq6Q: "O Luso-Legal pode substituir um advogado?",
   faq6A:
-    "Não. O Luso-Legal fornece informação jurídica geral sobre direito português, não conselhos personalizados. Em casos complexos, escala automaticamente para um advogado humano. Disponível 24h/24 a 19 €/mês com 10 perguntas incluídas.",
+    "Não. O Luso-Legal fornece informação jurídica geral sobre direito português, não conselhos personalizados. Em casos complexos, escala automaticamente para um advogado humano. Disponível 24h/24 a 19 €/mês com 10 consultas incluídas.",
   faq7Q: "Os meus dados estão protegidos?",
   faq7A:
     "Sim. A EasyLaw aplica ciframento TLS 1.3 em trânsito e AES-256 em repouso, cumpre o RGPD e a CNPD portuguesa, e garante a segregação estrita dos dados por processo. Nenhum dado pessoal é partilhado sem o seu consentimento explícito.",
   faq8Q: "Quanto custa a EasyLaw?",
   faq8A:
-    "A EasyLaw propõe quatro opções transparentes: NIF & Starter Pack (99 € único), Gerador de contratos (49 € por contrato), Compliance Dashboard (29 €/mês sem compromisso) e Luso-Legal IA (19 €/mês com 10 perguntas incluídas). Sem taxas escondidas.",
+    "A EasyLaw propõe quatro opções transparentes: Gerador de contratos (49 €/contrato), Compliance Dashboard (29 €/mês sem compromisso), Luso-Legal IA (19 €/mês com 10 consultas) e NIF & Starter Pack (99 € único). Sem taxas escondidas.",
 
-  finalTitle: "Pronto para simplificar a sua relação com o direito português?",
+  finalTitle: "O seu próximo contrato, em minutos.",
   finalSubtitle:
-    "Comece com o seu NIF a 99 €, ou explore as nossas ferramentas gratuitamente. Sem compromisso.",
-  finalCtaPrimary: "Começar o meu processo NIF",
-  finalCtaSecondary: "Falar com um consultor",
+    "Junte-se a mais de 3.000 advogados que já trabalham de forma diferente.",
+  finalCtaPrimary: "Começar agora",
+  finalCtaSecondary: "Falar com a equipa",
 
-  footerTagline: "Plataforma jurídica para Portugal. Supervisionada pela Oliveira & Carneiro Advogados.",
+  footerTagline: "Direito português. Simplicidade por design.",
   footerColProducts: "Produtos",
   footerColCompany: "Empresa",
   footerColLegal: "Legal",
