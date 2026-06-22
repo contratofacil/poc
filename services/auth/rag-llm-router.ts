@@ -93,6 +93,73 @@ function getGoogle(): GoogleGenerativeAI {
   return _google;
 }
 
+// ── Raw call (dynamic prompts, no DB lookup) ─────────────────────────────────
+
+export async function callLLMRaw(
+  systemPrompt: string,
+  userContent: string,
+  provider: LLMProvider = 'anthropic',
+  model = 'claude-haiku-4-5',
+  maxTokens = 2048,
+  signal?: AbortSignal,
+): Promise<string> {
+  switch (provider) {
+    case 'anthropic': {
+      const msg = await getAnthropic().messages.create(
+        {
+          model,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }],
+        },
+        { signal },
+      );
+      return (msg.content[0] as Anthropic.TextBlock).text;
+    }
+    case 'openai': {
+      const res = await getOpenAI().chat.completions.create(
+        {
+          model,
+          max_tokens: maxTokens,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent },
+          ],
+        },
+        { signal },
+      );
+      return res.choices[0].message.content ?? '';
+    }
+    case 'mistral': {
+      const res = await getMistral().chat.complete(
+        {
+          model,
+          maxTokens,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent },
+          ],
+        },
+        { signal },
+      );
+      const choice = res.choices?.[0];
+      const content = choice?.message?.content;
+      return typeof content === 'string' ? content : '';
+    }
+    case 'google': {
+      const genModel = getGoogle().getGenerativeModel({ model });
+      const chat = genModel.startChat({
+        systemInstruction: systemPrompt,
+        generationConfig: { maxOutputTokens: maxTokens },
+      });
+      const result = await chat.sendMessage(userContent, { signal });
+      return result.response.text();
+    }
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
+  }
+}
+
 // ── Non-streaming call ───────────────────────────────────────────────────────
 
 export async function callPrompt(key: string, variables: Record<string, string>): Promise<string> {

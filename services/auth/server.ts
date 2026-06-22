@@ -39,6 +39,7 @@ import { createEpic10Router } from './routes/epic10-analysis';
 import { createEpic11Router, setupCollaborationSocket } from './routes/epic11-documents';
 import { createEpic12Router } from './routes/epic12-ged';
 import { createEpic13Router, buildOpenAPISpec } from './routes/epic13-api';
+import { createAgentsRouter } from './routes/epic-agents';
 import { createKycRouter } from './routes/kyc';
 import { createContactRouter } from './routes/contact';
 
@@ -2805,6 +2806,9 @@ app.get('/api/admin/rag/private/checklist.pdf', authMiddleware, checkRole(ADMIN_
     if (!res.headersSent) res.status(500).json({ success: false, message: 'Génération PDF échouée' });
   }
 });
+
+// ─── Agents juridiques multi-agents ──────────────────────────────────────────
+app.use('/api/agents', createAgentsRouter(authMiddleware, checkRole));
 
 // ─── KYC / eIDV — vérification d'identité NIF (Lei 83/2017) ──────────────────
 app.use('/api/nif/kyc', createKycRouter());
