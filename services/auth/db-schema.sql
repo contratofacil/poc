@@ -559,7 +559,7 @@ Additional Portuguese legal context:
 Draft the complete contract:',
   'anthropic',
   'claude-sonnet-4-6',
-  2048,
+  4096,
   0.2
 ),
 (
@@ -590,13 +590,65 @@ Analyze and respond with the JSON findings:',
 )
 ON CONFLICT (key) DO NOTHING;
 
--- Ensure contract clause generation uses 2048 tokens (fix for existing rows seeded with 4096)
-UPDATE llm_prompts SET max_tokens = 2048 WHERE key = 'contract_clause_generation' AND max_tokens != 2048;
+-- Increase max_tokens to 4096 so the full multi-article NDA is generated without truncation
+UPDATE llm_prompts SET max_tokens = 4096 WHERE key = 'contract_clause_generation';
 
 -- NDA clause: replace {duree_mois} mois with {duree} to accept text values like "5 ans", "18 mois"
 UPDATE clause_versions
 SET content = 'Les obligations de confidentialité découlant du présent Accord s''appliquent pendant {duree} à compter de la date de signature du présent document par les deux parties.'
 WHERE clause_key = 'duree_nda';
+
+-- Complete NDA clause skeletons — 8 new articles (Definitions through Signatures)
+INSERT INTO clause_versions (id, contract_type, clause_key, content, loi_reference, valid_from, valid_to) VALUES
+(
+  '12', 'nda', 'nda_definitions',
+  'Aux fins du présent Accord, on entend par « Informations Confidentielles » toutes les informations de nature technique, commerciale, financière, stratégique ou autre, sous quelque forme que ce soit (écrite, orale, électronique ou autre), divulguées par l''une des Parties à l''autre, en ce compris {perimetre}. Sont expressément assimilées à des Informations Confidentielles les études, analyses, compilations, prévisions ou tout autre document préparé par la Partie Réceptrice incorporant tout ou partie des Informations Confidentielles reçues.',
+  'Art. 195 do Código Comercial; Art. 513 do Código Civil',
+  '2026-01-01', ''
+),
+(
+  '13', 'nda', 'nda_obligations',
+  'La Partie Réceptrice s''engage à : (i) traiter les Informations Confidentielles avec le même degré de soin que celui qu''elle accorde à ses propres informations confidentielles, et en tout état de cause avec un niveau de diligence raisonnable ; (ii) n''utiliser les Informations Confidentielles qu''aux fins strictement nécessaires à la réalisation de {objet} ; (iii) ne divulguer les Informations Confidentielles qu''aux membres de son personnel ou à ses conseils qui ont besoin d''en prendre connaissance et qui sont soumis à des obligations de confidentialité au moins équivalentes à celles stipulées au présent Accord ; (iv) aviser sans délai la Partie Divulgatrice de toute divulgation non autorisée dont elle aurait connaissance.',
+  'Art. 227 et 483 do Código Civil; Art. 318 do Código Penal',
+  '2026-01-01', ''
+),
+(
+  '14', 'nda', 'nda_exclusions',
+  'Les obligations de confidentialité prévues au présent Accord ne s''appliquent pas aux informations qui : (a) sont ou deviennent disponibles dans le domaine public sans manquement aux obligations de confidentialité ; (b) étaient déjà connues de la Partie Réceptrice avant leur divulgation, comme en témoignent ses registres antérieurs ; (c) ont été développées de manière indépendante par la Partie Réceptrice sans référence aux Informations Confidentielles ; (d) ont été légalement reçues d''un tiers non soumis à une obligation de confidentialité ; ou (e) doivent être divulguées en vertu d''une disposition légale, réglementaire ou d''une décision judiciaire définitive, sous réserve d''en informer préalablement la Partie Divulgatrice.',
+  'Art. 195 do Código Comercial',
+  '2026-01-01', ''
+),
+(
+  '15', 'nda', 'nda_permitted',
+  'Nonobstant les dispositions précédentes, la Partie Réceptrice est autorisée à divulguer les Informations Confidentielles à ses employés, dirigeants, conseillers juridiques, comptables et autres prestataires de services (ci-après les « Représentants Autorisés »), dans la mesure où une telle divulgation est nécessaire aux fins de {objet}. La Partie Réceptrice s''assure que chacun de ses Représentants Autorisés est informé du caractère confidentiel des informations et est lié par des obligations de confidentialité au moins équivalentes à celles du présent Accord. La Partie Réceptrice demeure responsable de tout manquement à la confidentialité commis par ses Représentants Autorisés.',
+  'Art. 800 do Código Civil',
+  '2026-01-01', ''
+),
+(
+  '16', 'nda', 'nda_return',
+  'À l''expiration ou à la résiliation du présent Accord, ou à la demande écrite de la Partie Divulgatrice, la Partie Réceptrice s''engage à restituer sans délai l''intégralité des documents et supports contenant les Informations Confidentielles, ou à en certifier la destruction complète et définitive, à l''exception des copies conservées aux seules fins de respect des obligations légales et réglementaires applicables. La Partie Réceptrice certifiera par écrit la destruction ou la restitution effective dans un délai de quinze (15) jours suivant la demande ou la date de fin d''Accord.',
+  'Art. 406 et 762 do Código Civil',
+  '2026-01-01', ''
+),
+(
+  '17', 'nda', 'nda_governing_law',
+  'Le présent Accord est régi et interprété conformément au droit de {jurisdiction}. En cas de litige, les Parties s''engagent à rechercher une solution amiable dans un délai de trente (30) jours à compter de la notification du différend. À défaut de règlement amiable, tout litige sera soumis à la compétence exclusive des juridictions compétentes de {jurisdiction}. Dans les relations commerciales transfrontalières, les Parties peuvent convenir de recourir à l''arbitrage conformément au Règlement d''arbitrage de la CCI.',
+  'Art. 62 do Código de Processo Civil; Règlement Bruxelles I bis (UE) 1215/2012',
+  '2026-01-01', ''
+),
+(
+  '18', 'nda', 'nda_general',
+  'Le présent Accord constitue l''intégralité de l''accord entre les Parties concernant son objet et remplace tous accords, engagements et négociations antérieurs portant sur le même objet. Aucune modification ne sera valide à moins d''être établie par écrit et signée par les représentants dûment autorisés des deux Parties. Si l''une des stipulations est déclarée nulle ou inapplicable, les autres demeureront pleinement en vigueur. Le présent Accord ne peut être cédé sans le consentement écrit préalable de l''autre Partie.',
+  'Art. 405 et 286 do Código Civil',
+  '2026-01-01', ''
+),
+(
+  '19', 'nda', 'nda_signatures',
+  'EN FOI DE QUOI, les représentants dûment autorisés des Parties ont signé le présent Accord.\n\nPour {divulgateur} :\nNom : ___________________________\nTitre : ___________________________\nDate : ___________________________\nSignature : ___________________________\n\nPour {recepteur} :\nNom : ___________________________\nTitre : ___________________________\nDate : ___________________________\nSignature : ___________________________\n\nFootnote : TEMPLATE — Requires attorney review before use. Not legal advice.',
+  'N/A',
+  '2026-01-01', ''
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Add jurisdiction variable to the clause generation user prompt so the LLM uses the user-provided jurisdiction
 UPDATE llm_prompts

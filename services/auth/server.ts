@@ -1032,7 +1032,7 @@ async function buildContractText(contract: any): Promise<string> {
           rag_context: ragContext,
           jurisdiction: String(data.jurisdiction || 'Portugal'),
         }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 45000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 90000)),
       ]);
 
       if (aiText && aiText.length >= 100) return aiText;
@@ -1103,6 +1103,7 @@ function stripMarkdown(text: string): string {
     .replace(/^(?:-{3,}|\*{3,}|_{3,})$/gm, '')           // horizontal rules
     .replace(/^#{1,2}\s+(.+)$/gm, (_, t) => t.toUpperCase()) // h1/h2 → uppercase
     .replace(/^#{3,6}\s+(.+)$/gm, '$1')                  // h3–h6 → plain text
+    .replace(/^>\s*/gm, '')                               // blockquote markers > (keeps content)
     .replace(/\*{1,2}([^*\n]+)\*{1,2}/g, '$1')           // **bold** / *italic*
     .replace(/__([^_\n]+)__/g, '$1')                      // __bold__
     .replace(/`([^`]+)`/g, '$1')                          // `inline code`
