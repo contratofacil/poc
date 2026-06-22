@@ -590,8 +590,8 @@ Analyze and respond with the JSON findings:',
 )
 ON CONFLICT (key) DO NOTHING;
 
--- Increase max_tokens to 4096 so the full multi-article NDA is generated without truncation
-UPDATE llm_prompts SET max_tokens = 4096 WHERE key = 'contract_clause_generation';
+-- 12-article NDA needs ~6000-8000 tokens of prose — raise to 8192 (Sonnet 4.6 max)
+UPDATE llm_prompts SET max_tokens = 8192 WHERE key = 'contract_clause_generation';
 
 -- NDA clause: replace {duree_mois} mois with {duree} to accept text values like "5 ans", "18 mois"
 UPDATE clause_versions

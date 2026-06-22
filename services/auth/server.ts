@@ -1109,6 +1109,7 @@ function stripMarkdown(text: string): string {
     .replace(/`([^`]+)`/g, '$1')                          // `inline code`
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')             // [link](url) → text
     .replace(/^[a-z][a-z0-9_]{2,}[a-z0-9]$/gm, '')      // bare snake_case clause keys
+    .replace(/^[A-Z][A-Z0-9_]{2,}[A-Z0-9]$/gm, '')      // bare UPPER_SNAKE_CASE clause keys
     .replace(/\n{3,}/g, '\n\n')                           // collapse excess blank lines
     .replace(/[ \t]+$/gm, '');                            // trailing whitespace per line
 }
