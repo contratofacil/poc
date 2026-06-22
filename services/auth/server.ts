@@ -1030,6 +1030,7 @@ async function buildContractText(contract: any): Promise<string> {
           data_json: JSON.stringify(data),
           lang: userLang,
           rag_context: ragContext,
+          jurisdiction: String(data.jurisdiction || 'Portugal'),
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 45000)),
       ]);

@@ -593,6 +593,29 @@ ON CONFLICT (key) DO NOTHING;
 -- Ensure contract clause generation uses 2048 tokens (fix for existing rows seeded with 4096)
 UPDATE llm_prompts SET max_tokens = 2048 WHERE key = 'contract_clause_generation' AND max_tokens != 2048;
 
+-- NDA clause: replace {duree_mois} mois with {duree} to accept text values like "5 ans", "18 mois"
+UPDATE clause_versions
+SET content = 'Les obligations de confidentialité découlant du présent Accord s''appliquent pendant {duree} à compter de la date de signature du présent document par les deux parties.'
+WHERE clause_key = 'duree_nda';
+
+-- Add jurisdiction variable to the clause generation user prompt so the LLM uses the user-provided jurisdiction
+UPDATE llm_prompts
+SET user_prompt_template = 'Contract type: {{contract_type}}
+Jurisdiction: {{jurisdiction}}
+Language: {{lang}}
+
+Clause skeleton (JSON):
+{{clauses_json}}
+
+User data (JSON):
+{{data_json}}
+
+Additional legal context:
+{{rag_context}}
+
+Draft the complete contract:'
+WHERE key = 'contract_clause_generation';
+
 CREATE TABLE IF NOT EXISTS partner_webhooks (
   id TEXT PRIMARY KEY,
   client_id TEXT NOT NULL,
