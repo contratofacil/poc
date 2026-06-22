@@ -1043,16 +1043,59 @@ async function buildContractText(contract: any): Promise<string> {
   return buildContractTextStatic(clauses, data, contract.type);
 }
 
+// Word-wrap a line to fit within maxChars (prevents text overflow on the right margin).
+function wrapTextLine(line: string, maxChars = 95): string[] {
+  if (line.length <= maxChars) return [line];
+  const words = line.split(' ');
+  const wrapped: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+    } else {
+      if (current) wrapped.push(current);
+      // Force-split single words that exceed the limit
+      if (word.length > maxChars) {
+        let w = word;
+        while (w.length > maxChars) { wrapped.push(w.slice(0, maxChars)); w = w.slice(maxChars); }
+        current = w;
+      } else {
+        current = word;
+      }
+    }
+  }
+  if (current) wrapped.push(current);
+  return wrapped;
+}
+
+// Encode a JS string to latin1 bytes suitable for a PDF text stream.
+// PDF Type1 fonts with WinAnsiEncoding use single-byte 0x00–0xFF; we convert
+// each char by taking its code point (clamped to 255 for safety).
+function toPdfBytes(str: string): string {
+  let out = '';
+  for (let i = 0; i < str.length; i++) {
+    const cp = str.charCodeAt(i);
+    out += cp <= 0xff ? String.fromCharCode(cp) : '?';
+  }
+  return out;
+}
+
 async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
   const compiledContent = await buildContractText(contract);
 
-  const textLines = compiledContent.split('\n');
+  // Wrap each paragraph line so text doesn't run off the right edge.
+  const textLines = compiledContent.split('\n').flatMap((l) => wrapTextLine(l));
+
+  // Build the content stream using WinAnsiEncoding-compatible bytes.
   let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
-  textLines.forEach(line => {
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  textLines.forEach((line) => {
+    const bytes = toPdfBytes(line);
+    const escaped = bytes.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
     streamContent += `(${escaped}) Tj T*\n`;
   });
   streamContent += `ET`;
+
   const streamLength = Buffer.byteLength(streamContent, 'latin1');
   const pdfParts = [
     `%PDF-1.4`,
@@ -1060,7 +1103,8 @@ async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
     `2 0 obj`, `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`, `endobj`,
     `3 0 obj`, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`, `endobj`,
     `4 0 obj`, `<< /Length ${streamLength} >>`, `stream`, streamContent, `endstream`, `endobj`,
-    `5 0 obj`, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`, `endobj`,
+    // WinAnsiEncoding ensures accented Latin characters (é, è, à, ç…) render correctly.
+    `5 0 obj`, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`, `endobj`,
     `xref`, `0 6`, `0000000000 65535 f `,
     `trailer`, `<< /Size 6 /Root 1 0 R >>`,
     `%%EOF`
