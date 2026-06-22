@@ -1031,7 +1031,7 @@ async function buildContractText(contract: any): Promise<string> {
           lang: userLang,
           rag_context: ragContext,
         }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 10000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 45000)),
       ]);
 
       if (aiText && aiText.length >= 100) return aiText;

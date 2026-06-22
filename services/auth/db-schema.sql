@@ -559,7 +559,7 @@ Additional Portuguese legal context:
 Draft the complete contract:',
   'anthropic',
   'claude-sonnet-4-6',
-  4096,
+  2048,
   0.2
 ),
 (
@@ -589,6 +589,9 @@ Analyze and respond with the JSON findings:',
   0.2
 )
 ON CONFLICT (key) DO NOTHING;
+
+-- Ensure contract clause generation uses 2048 tokens (fix for existing rows seeded with 4096)
+UPDATE llm_prompts SET max_tokens = 2048 WHERE key = 'contract_clause_generation' AND max_tokens != 2048;
 
 CREATE TABLE IF NOT EXISTS partner_webhooks (
   id TEXT PRIMARY KEY,
