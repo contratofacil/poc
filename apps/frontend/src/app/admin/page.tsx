@@ -149,10 +149,12 @@ interface IndexingRun {
   id: string;
   source: string;
   status: string;
-  docs_indexed: number;
+  docs_processed: number;
+  docs_indexed?: number;
   started_at: string;
-  finished_at: string | null;
-  error_message: string | null;
+  completed_at: string | null;
+  error: string | null;
+  error_message?: string | null;
 }
 
 interface IndexingStatus {
@@ -522,7 +524,7 @@ function AdminPageContent() {
     }
   };
 
-  const handleTriggerIndex = async (source?: string) => {
+  const handleTriggerIndex = async (source?: string, force = false) => {
     setIsTriggeringIndex(true);
     setMessage(null);
     const token = await getAccessToken();
@@ -530,7 +532,7 @@ function AdminPageContent() {
       const res = await fetch(getApiUrl("/api/admin/indexing/trigger"), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ source }),
+        body: JSON.stringify({ source, force }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -1524,7 +1526,7 @@ function AdminPageContent() {
                         <span
                           className="text-[9px] px-2 py-0.5 rounded-full font-semibold shrink-0"
                           style={
-                            run.status === "done"
+                            run.status === "completed"
                               ? { background: "var(--status-green-bg)", color: "var(--status-green)" }
                               : run.status === "running"
                               ? { background: "var(--status-amber-bg)", color: "var(--status-amber)" }
@@ -1540,11 +1542,11 @@ function AdminPageContent() {
                           {run.source ?? "ALL"}
                         </span>
                         <span style={{ color: "var(--text-secondary)" }}>
-                          {(run.docs_indexed ?? 0).toLocaleString("fr-FR")} docs
+                          {((run as any).docs_processed ?? run.docs_indexed ?? 0).toLocaleString("fr-FR")} docs
                         </span>
-                        {run.error_message && (
+                        {(run.error ?? run.error_message) && (
                           <span className="flex-1 truncate" style={{ color: "var(--status-red)" }}>
-                            {run.error_message}
+                            {run.error ?? run.error_message}
                           </span>
                         )}
                         <span className="ml-auto shrink-0" style={{ color: "var(--text-muted)" }}>
@@ -1557,32 +1559,50 @@ function AdminPageContent() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3 flex-wrap">
-                <button
-                  onClick={() => handleTriggerIndex()}
-                  disabled={isTriggeringIndex}
-                  className={`flex items-center gap-2 ${CLS_BTN_PRIMARY}`}
-                  style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
-                >
-                  <RefreshCw className={`w-4 h-4 ${isTriggeringIndex ? "animate-spin" : ""}`} aria-hidden="true" />
-                  {isTriggeringIndex ? "Déclenchement…" : "Ré-indexer toutes les sources"}
-                </button>
-                {[
-                  "DRE_I", "DRE_II", "BTE", "ACT",
-                  "EURLEX", "CURIA",
-                  "DGSI", "TC", "TCONTAS", "CAAD",
-                  "AT", "BDP", "CMVM", "ASF", "ADC",
-                ].map((src) => (
+              <div className="space-y-3">
+                <div className="flex gap-3 flex-wrap">
                   <button
-                    key={src}
-                    onClick={() => handleTriggerIndex(src)}
+                    onClick={() => handleTriggerIndex()}
                     disabled={isTriggeringIndex}
-                    className={CLS_BTN_OUTLINE}
-                    style={{ borderColor: SOURCE_COLORS[src] ?? "var(--surface-mist)", color: SOURCE_COLORS[src] ?? "var(--text-secondary)" }}
+                    className={`flex items-center gap-2 ${CLS_BTN_PRIMARY}`}
+                    style={{ background: "var(--brand-primary)", color: "var(--text-inverse)" }}
                   >
-                    {SOURCE_LABELS[src] ?? src}
+                    <RefreshCw className={`w-4 h-4 ${isTriggeringIndex ? "animate-spin" : ""}`} aria-hidden="true" />
+                    {isTriggeringIndex ? "Déclenchement…" : "Ré-indexer toutes les sources"}
                   </button>
-                ))}
+                  <button
+                    onClick={() => {
+                      if (confirm("Force reindex : réindexe TOUT depuis le début sans filtre de date. Continuer ?")) {
+                        handleTriggerIndex(undefined, true);
+                      }
+                    }}
+                    disabled={isTriggeringIndex}
+                    className={`flex items-center gap-2 ${CLS_BTN_OUTLINE}`}
+                    style={{ borderColor: "var(--status-red-border)", color: "var(--status-red)" }}
+                    title="Réindexe depuis le début (ignore le filtre de date)"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+                    Force reindex
+                  </button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    "DRE_I", "DRE_II", "BTE", "ACT",
+                    "EURLEX", "CURIA",
+                    "DGSI", "TC", "TCONTAS", "CAAD",
+                    "AT", "BDP", "CMVM", "ASF", "ADC",
+                  ].map((src) => (
+                    <button
+                      key={src}
+                      onClick={() => handleTriggerIndex(src)}
+                      disabled={isTriggeringIndex}
+                      className={CLS_BTN_OUTLINE}
+                      style={{ borderColor: SOURCE_COLORS[src] ?? "var(--surface-mist)", color: SOURCE_COLORS[src] ?? "var(--text-secondary)" }}
+                    >
+                      {SOURCE_LABELS[src] ?? src}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* ── Documents privés du cabinet ──────────────────────────────── */}

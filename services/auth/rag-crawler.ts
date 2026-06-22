@@ -54,23 +54,25 @@ function makeDoc(
 }
 
 // ── DRE (Diário da República Eletrónico) ────────────────────────────────────
-// dre.pt → diariodarepublica.pt (2023). Try REST API first, then RSS fallback.
+// dre.pt → diariodarepublica.pt (2023). REST API (serie=1/2), then RSS fallback.
 
 export async function crawlDRE(serie: 'I' | 'II', since?: string): Promise<CrawledDocument[]> {
   const source: SourceId = serie === 'I' ? 'DRE_I' : 'DRE_II';
+  const serieNum = serie === 'I' ? '1' : '2';
 
-  // 1. Try REST JSON API
+  // 1. Try REST JSON API — DRE uses numeric serie parameter (1 or 2)
   const apiCandidates = [
+    `https://diariodarepublica.pt/dr/api/publicacao/pesquisa?tipoPesquisa=GLOBAL&valor=&serie=${serieNum}&pageSize=50`,
+    `https://diariodarepublica.pt/dr/api/publicacao/pesquisa?serie=${serieNum}&pageSize=50`,
     `https://diariodarepublica.pt/dr/api/publicacao/pesquisa?tipoPesquisa=GLOBAL&valor=&serie=${serie}&pageSize=50`,
-    `https://diariodarepublica.pt/dr/api/publicacao/pesquisa?serie=${serie}&pageSize=50`,
-    `https://diariodarepublica.pt/dr/api/publicacao/list?serie=${serie}&pageSize=50`,
   ];
   for (const apiUrl of apiCandidates) {
     try {
-      const res = await axios.get(apiUrl, { timeout: 15_000, headers: { ...HEADERS, Accept: 'application/json' } });
+      const res = await axios.get(apiUrl, { timeout: 20_000, headers: { ...HEADERS, Accept: 'application/json' } });
+      if (res.status !== 200) continue;
       const data = res.data;
-      const items: any[] = Array.isArray(data) ? data : (data?.items ?? data?.results ?? data?.publicacoes ?? []);
-      if (!items.length) continue;
+      const items: any[] = Array.isArray(data) ? data : (data?.items ?? data?.results ?? data?.publicacoes ?? data?.data ?? []);
+      if (!items.length) { console.log(`[CRAWLER] DRE ${serie} API (${apiUrl.split('?')[0]}): 200 OK but empty array`); continue; }
       const docs = items
         .filter((item: any) => {
           const date = item.data ?? item.date ?? null;
@@ -79,26 +81,32 @@ export async function crawlDRE(serie: 'I' | 'II', since?: string): Promise<Crawl
         .map((item: any) => {
           const title = item.titulo ?? item.title ?? item.sumario ?? 'DRE Document';
           const url = item.url ?? item.link ?? `https://diariodarepublica.pt/dr/detalhe/${item.id ?? ''}`;
-          const text = [item.titulo, item.sumario, item.descricao].filter(Boolean).join('\n\n');
-          return makeDoc(source, url, title, text || title, item.data ?? null);
+          const text = [item.titulo, item.sumario, item.descricao, item.texto].filter(Boolean).join('\n\n');
+          return makeDoc(source, url, title, text || title, item.data ?? item.date ?? null);
         });
       console.log(`[CRAWLER] DRE ${serie}: ${docs.length} documents (API)`);
       return docs;
-    } catch { /* try next */ }
+    } catch (err: any) {
+      const status = err?.response?.status ?? 'ERR';
+      console.warn(`[CRAWLER] DRE ${serie} API failed (HTTP ${status}):`, err?.message?.slice(0, 120));
+    }
   }
 
-  // 2. RSS fallback
+  // 2. RSS fallback — current diariodarepublica.pt RSS paths
   const rssCandidates = [
+    `https://diariodarepublica.pt/dr/pt/rss?serie=${serieNum}`,
+    `https://diariodarepublica.pt/dr/rss/serie${serieNum}`,
+    `https://diariodarepublica.pt/rss/rss.aspx?serie=${serieNum}`,
     `https://diariodarepublica.pt/rss/rss.aspx?serie=${serie}`,
-    `https://diariodarepublica.pt/rss/rss.aspx?type=${serie === 'I' ? '1' : '2'}`,
     'https://diariodarepublica.pt/rss/rss.aspx',
   ];
   for (const rssUrl of rssCandidates) {
     try {
-      const res = await axios.get(rssUrl, { timeout: 15_000, headers: HEADERS });
+      const res = await axios.get(rssUrl, { timeout: 20_000, headers: HEADERS });
+      if (res.status !== 200) continue;
       const $ = cheerio.load(res.data, { xmlMode: true });
       const items = $('item');
-      if (!items.length) continue;
+      if (!items.length) { console.log(`[CRAWLER] DRE ${serie} RSS (${rssUrl}): 200 OK but 0 items`); continue; }
       const docs: CrawledDocument[] = [];
       items.each((_, el) => {
         const title = $(el).find('title').text().trim();
@@ -108,20 +116,22 @@ export async function crawlDRE(serie: 'I' | 'II', since?: string): Promise<Crawl
         const date = pubDate ? new Date(pubDate).toISOString().slice(0, 10) : null;
         if (!link) return;
         if (since && date && date < since) return;
-        if (rssUrl.endsWith('rss.aspx')) {
+        // Filter by serie only when using the generic feed (no serie param)
+        if (!rssUrl.includes(`serie=${serieNum}`) && !rssUrl.includes(`serie=${serie}`)) {
           const isSerie2 = /s[eé]rie\s*ii/i.test(title + link);
           if (serie === 'I' && isSerie2) return;
           if (serie === 'II' && !isSerie2) return;
         }
         docs.push(makeDoc(source, link, title || 'DRE Document', `${title}\n\n${desc}`, date));
       });
-      console.log(`[CRAWLER] DRE ${serie}: ${docs.length} documents (RSS)`);
+      console.log(`[CRAWLER] DRE ${serie}: ${docs.length} documents (RSS ${rssUrl})`);
       return docs;
     } catch (err: any) {
-      console.warn(`[CRAWLER] DRE ${serie} RSS échoué (${rssUrl}):`, err?.message);
+      const status = err?.response?.status ?? 'ERR';
+      console.warn(`[CRAWLER] DRE ${serie} RSS failed (HTTP ${status}, ${rssUrl}):`, err?.message?.slice(0, 120));
     }
   }
-  console.log(`[CRAWLER] DRE ${serie}: 0 documents`);
+  console.warn(`[CRAWLER] DRE ${serie}: 0 documents — all API/RSS attempts failed (check Railway IP allowlist)`);
   return [];
 }
 
@@ -330,7 +340,11 @@ export async function crawlBTE(since?: string): Promise<CrawledDocument[]> {
 
 async function crawlRegulator(source: SourceId, url: string, selector: string, base: string): Promise<CrawledDocument[]> {
   try {
-    const res = await axios.get(url, { timeout: 15_000, headers: HEADERS });
+    const res = await axios.get(url, { timeout: 20_000, headers: HEADERS });
+    if (res.status !== 200) {
+      console.warn(`[CRAWLER] ${source}: HTTP ${res.status} — 0 documents`);
+      return [];
+    }
     const $ = cheerio.load(res.data);
     const docs: CrawledDocument[] = [];
     $(selector).each((_, el) => {
@@ -340,10 +354,15 @@ async function crawlRegulator(source: SourceId, url: string, selector: string, b
       const fullUrl = href.startsWith('http') ? href : `${base}${href}`;
       docs.push(makeDoc(source, fullUrl, title, title, null));
     });
-    console.log(`[CRAWLER] ${source}: ${docs.length} documents`);
+    if (docs.length === 0) {
+      console.warn(`[CRAWLER] ${source}: 200 OK but selector "${selector}" matched 0 links — page structure may have changed`);
+    } else {
+      console.log(`[CRAWLER] ${source}: ${docs.length} documents`);
+    }
     return docs.slice(0, 100);
   } catch (err: any) {
-    console.log(`[CRAWLER] ${source}: 0 documents (${err?.message ?? 'erreur'})`);
+    const status = err?.response?.status ?? 'ERR';
+    console.warn(`[CRAWLER] ${source}: HTTP ${status} — ${err?.message?.slice(0, 120) ?? 'erreur'} (check if site blocks cloud IPs)`);
     return [];
   }
 }
@@ -404,16 +423,19 @@ export async function indexDocuments(docs: CrawledDocument[], runId: string): Pr
 
 // ── Full incremental indexing ─────────────────────────────────────────────────
 
-export async function runIncrementalIndex(source?: string): Promise<void> {
-  const lastRun = source
-    ? await dbGet<{ completed_at: string }>(
-        `SELECT completed_at FROM indexing_runs WHERE status = 'completed' AND source = ? ORDER BY completed_at DESC LIMIT 1`,
-        [source],
-      )
-    : await dbGet<{ completed_at: string }>(
-        `SELECT completed_at FROM indexing_runs WHERE status = 'completed' ORDER BY completed_at DESC LIMIT 1`,
-      );
-  const since = lastRun?.completed_at?.slice(0, 10);
+export async function runIncrementalIndex(source?: string, force = false): Promise<void> {
+  // For ALL runs: only use previous ALL runs as baseline (not single-source runs,
+  // which would push `since` to today and filter out all historical content).
+  // `force=true` skips the `since` filter entirely (full reindex).
+  let since: string | undefined;
+  if (!force) {
+    const lookupSource = source ?? 'ALL';
+    const lastRun = await dbGet<{ completed_at: string }>(
+      `SELECT completed_at FROM indexing_runs WHERE status = 'completed' AND source = ? ORDER BY completed_at DESC LIMIT 1`,
+      [lookupSource],
+    );
+    since = lastRun?.completed_at?.slice(0, 10);
+  }
 
   const runId = crypto.randomUUID();
   const sourceName = source ?? 'ALL';

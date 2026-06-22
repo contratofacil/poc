@@ -2539,13 +2539,52 @@ app.get('/api/admin/indexing/status', authMiddleware, checkRole(ADMIN_ROLES), as
   }
 });
 
+// GET /api/admin/indexing/diagnose — test connectivity to each source URL (no indexing)
+app.get('/api/admin/indexing/diagnose', authMiddleware, checkRole(ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
+  const targets = [
+    { source: 'DRE_I',  url: 'https://diariodarepublica.pt/dr/api/publicacao/pesquisa?tipoPesquisa=GLOBAL&valor=&serie=1&pageSize=5' },
+    { source: 'DRE_I_rss', url: 'https://diariodarepublica.pt/dr/pt/rss/serie1' },
+    { source: 'BTE',    url: 'https://bte.gep.mtsss.gov.pt/' },
+    { source: 'CMVM',   url: 'https://www.cmvm.pt/pt/Legislacao/Legislacaonacional/Regulamentos/Pages/default.aspx' },
+    { source: 'BDP',    url: 'https://www.bportugal.pt/legislacao-e-normas/legislacao' },
+    { source: 'ADC',    url: 'https://www.concorrencia.pt/pt/decisoes' },
+    { source: 'CURIA',  url: 'https://curia.europa.eu/juris/liste.jsf?language=pt&jur=C,T&resmax=10' },
+    { source: 'EURLEX', url: 'https://eur-lex.europa.eu/search.html?text=direito+Portugal&scope=EURLEX&type=quick&lang=pt' },
+    { source: 'QDRANT', url: (process.env.QDRANT_URL || 'http://localhost:6333') + '/collections' },
+  ];
+
+  const AC = typeof AbortController !== 'undefined' ? AbortController : (await import('node:abort-controller' as any)).AbortController;
+  const results = await Promise.allSettled(
+    targets.map(async ({ source, url }) => {
+      const start = Date.now();
+      const ctrl = new AC();
+      const timer = setTimeout(() => ctrl.abort(), 10_000);
+      try {
+        const r = await fetch(url, {
+          signal: ctrl.signal as AbortSignal,
+          headers: { 'User-Agent': 'EasyLaw-Indexer/1.0', 'Accept-Language': 'pt-PT,pt;q=0.9' },
+        });
+        clearTimeout(timer);
+        const text = await r.text().catch(() => '');
+        return { source, url, status: r.status, ms: Date.now() - start, ok: r.ok, snippet: text.slice(0, 200).replace(/\s+/g, ' ') };
+      } catch (err: any) {
+        clearTimeout(timer);
+        return { source, url, status: 0, ms: Date.now() - start, ok: false, error: err?.message?.slice(0, 200) };
+      }
+    }),
+  );
+
+  const report = results.map((r) => (r.status === 'fulfilled' ? r.value : { source: '?', ok: false, error: String((r as any).reason) }));
+  res.json({ success: true, report });
+});
+
 // POST /api/admin/indexing/trigger
 app.post('/api/admin/indexing/trigger', authMiddleware, checkRole(ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
-  const { source } = req.body;
-  runIncrementalIndex(source).catch((err) =>
+  const { source, force } = req.body;
+  runIncrementalIndex(source, force === true).catch((err) =>
     console.error('[MANUAL TRIGGER] Indexing error:', err?.message),
   );
-  res.json({ success: true, message: `Indexing triggered for ${source ?? 'ALL'} sources` });
+  res.json({ success: true, message: `Indexing triggered for ${source ?? 'ALL'} sources${force ? ' (force reindex)' : ''}` });
 });
 
 // ─── Admin: Documents privés du cabinet (RAG) ──────────────────────────────
@@ -2859,7 +2898,13 @@ if (process.env.NODE_ENV !== 'test') {
     process.exit(1);
   }
   initDb()
-    .then(() => {
+    .then(async () => {
+      // Reset any runs left in "running" state from a previous server instance
+      await run(
+        `UPDATE indexing_runs SET status = 'failed', error = 'Server restarted', completed_at = ? WHERE status = 'running'`,
+        [new Date().toISOString()],
+      ).catch((e: any) => console.warn('[RAG] Could not reset stale runs:', e?.message));
+
       httpServer.listen(PORT, () => {
         console.log(`[AUTH SERVICE] Server is running on port ${PORT}`);
       });
