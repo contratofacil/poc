@@ -255,6 +255,8 @@ export function createEpic8Router(authMiddleware: any, _checkRole: any, logAudit
           field: typeof f.field === 'string' ? f.field : undefined,
           severity: f.severity as 'warning' | 'info',
           message: f.message as string,
+          suggested_fix: typeof f.suggested_fix === 'string' ? f.suggested_fix : undefined,
+          fix_label: typeof f.fix_label === 'string' ? f.fix_label : undefined,
         }));
 
       res.json({ success: true, findings });

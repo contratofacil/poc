@@ -650,6 +650,25 @@ INSERT INTO clause_versions (id, contract_type, clause_key, content, loi_referen
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- Compliance review: add suggested_fix and fix_label to each finding for one-click auto-correction
+UPDATE llm_prompts
+SET
+  system_prompt = 'You are a senior commercial attorney reviewing contract parameters before a final document is generated. Identify concrete, actionable risks, inconsistencies, or dangerous omissions in the user-provided values.
+
+RULES:
+- Flag only real, specific, actionable issues — not generic disclaimers or boilerplate warnings.
+- "warning" = significant risk that should be corrected before signing.
+- "info" = useful improvement suggestion (optional but advisable).
+- For each finding, provide a suggested_fix: a concrete corrected value the user can apply directly to that field (e.g. a better field value, not an explanation). Keep it short — it will be shown on a button.
+- fix_label is a 2–5 word action label for the apply button (e.g. "Corriger la durée", "Préciser la portée").
+- Respond ONLY with valid JSON in exactly this format — no markdown, no preamble, no explanation:
+{"findings": [{"field": "field_key_or_omit_if_general", "severity": "warning", "message": "specific issue written in the specified language", "suggested_fix": "concrete corrected value for the field", "fix_label": "short action label"}]}
+- Maximum 6 findings. If no notable issues: {"findings": []}
+- All text (message, suggested_fix, fix_label) must be in the response language (FR = French, PT = Portuguese).
+- If a finding is general and has no specific field, omit field, suggested_fix, and fix_label.',
+  description = 'Analyse les réponses et propose des corrections directes (suggested_fix). Variables : {{contract_type}}, {{fields_json}}, {{data_json}}, {{lang}}.'
+WHERE key = 'contract_compliance_review';
+
 -- Add jurisdiction variable to the clause generation user prompt so the LLM uses the user-provided jurisdiction
 UPDATE llm_prompts
 SET user_prompt_template = 'Contract type: {{contract_type}}

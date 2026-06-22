@@ -265,6 +265,11 @@ function WizardForm() {
     }
   };
 
+  const handleApplyFix = (fieldKey: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [fieldKey]: value }));
+    setReviewAcknowledged(false);
+  };
+
   const minsRemaining = Math.max(1, totalSteps - currentStep + 1);
 
   // ── Loading / error states ────────────────────────────────────────────────
@@ -299,6 +304,7 @@ function WizardForm() {
           lang={lang}
           onAcknowledge={handleComplianceAcknowledge}
           onGoBack={handleComplianceGoBack}
+          onApplyFix={handleApplyFix}
         />
       )}
 
