@@ -1069,23 +1069,53 @@ function wrapTextLine(line: string, maxChars = 95): string[] {
   return wrapped;
 }
 
-// Encode a JS string to latin1 bytes suitable for a PDF text stream.
-// PDF Type1 fonts with WinAnsiEncoding use single-byte 0x00–0xFF; we convert
-// each char by taking its code point (clamped to 255 for safety).
+// Windows-1252 positions for Unicode chars that are outside Latin-1 (U+0080–U+009F range
+// in the codepage but map to useful glyphs). Needed for —, –, curly quotes, etc.
+const WIN1252: Record<number, number> = {
+  0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85,
+  0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A,
+  0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92,
+  0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+  0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C,
+  0x017E: 0x9E, 0x0178: 0x9F,
+};
+
+// Encode a JS string to Windows-1252 bytes for a PDF text stream with WinAnsiEncoding.
 function toPdfBytes(str: string): string {
   let out = '';
   for (let i = 0; i < str.length; i++) {
     const cp = str.charCodeAt(i);
-    out += cp <= 0xff ? String.fromCharCode(cp) : '?';
+    if (cp <= 0xFF) out += String.fromCharCode(cp);
+    else if (WIN1252[cp] !== undefined) out += String.fromCharCode(WIN1252[cp]);
+    else out += '?';
   }
   return out;
+}
+
+// Strip Markdown formatting so AI-generated text renders cleanly in a plain PDF.
+// Converts headings to uppercase text, removes bold/italic markers, drops code fences
+// and separators, and removes bare snake_case clause-key identifiers the LLM sometimes
+// emits as section labels.
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^```[\s\S]*?^```/gm, '')                    // fenced code blocks
+    .replace(/^(?:-{3,}|\*{3,}|_{3,})$/gm, '')           // horizontal rules
+    .replace(/^#{1,2}\s+(.+)$/gm, (_, t) => t.toUpperCase()) // h1/h2 → uppercase
+    .replace(/^#{3,6}\s+(.+)$/gm, '$1')                  // h3–h6 → plain text
+    .replace(/\*{1,2}([^*\n]+)\*{1,2}/g, '$1')           // **bold** / *italic*
+    .replace(/__([^_\n]+)__/g, '$1')                      // __bold__
+    .replace(/`([^`]+)`/g, '$1')                          // `inline code`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')             // [link](url) → text
+    .replace(/^[a-z][a-z0-9_]{2,}[a-z0-9]$/gm, '')      // bare snake_case clause keys
+    .replace(/\n{3,}/g, '\n\n')                           // collapse excess blank lines
+    .replace(/[ \t]+$/gm, '');                            // trailing whitespace per line
 }
 
 async function compileContractPdfBuffer(contract: any): Promise<Buffer> {
   const compiledContent = await buildContractText(contract);
 
-  // Wrap each paragraph line so text doesn't run off the right edge.
-  const textLines = compiledContent.split('\n').flatMap((l) => wrapTextLine(l));
+  // Strip markdown and wrap each paragraph line to prevent right-edge overflow.
+  const textLines = stripMarkdown(compiledContent).split('\n').flatMap((l) => wrapTextLine(l));
 
   // Build the content stream using WinAnsiEncoding-compatible bytes.
   let streamContent = `BT\n/F1 10 Tf\n14 TL\n50 780 Td\n`;
